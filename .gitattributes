@@ -1,0 +1,4 @@
+*.sh text eol=lf
+*.ps1 text eol=crlf
+# конфиги монтируются в Linux-контейнеры Dify: только LF
+dify/** text=auto eol=lf

@@ -1,0 +1,23 @@
+# Мост Entryx в Docker: работает без открытой сессии и поднимается вместе с Docker Desktop.
+#   docker compose up -d --build      — собрать и запустить
+#   docker compose restart            — после правки process/stages.yaml
+#   docker compose logs -f            — журнал
+name: entryx
+
+services:
+  bridge:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      TWENTY_URL: http://host.docker.internal:3000
+      DIFY_API: http://host.docker.internal/v1
+      BRIDGE_DB: /data/bridge.db
+    ports:
+      - "127.0.0.1:8787:8787"   # только с этого компьютера; Dify ходит сюда через host.docker.internal
+    volumes:
+      - ../process:/app/process:ro
+      - ./static:/app/bridge/static:ro   # страницы (чат, уведомления, трекер): правка без пересборки
+      - ./data:/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

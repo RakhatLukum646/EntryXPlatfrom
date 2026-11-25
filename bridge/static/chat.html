@@ -1,0 +1,503 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Entryx AI · Чат</title>
+<style>
+/* Веб-чат Entryx AI. Дизайн как в прототипе: чернила #16181D, синий — бот, оранжевый — срок и проблема, зелёный — задача вам. */
+:root{
+  --ink:#16181D;--ink2:#3C4043;--mut:#5F6368;--faint:#8A8F98;
+  --line:#DADCE0;--line2:#EDEDEA;--card:#F4F4F2;--card2:#F7F7F5;--bub:#F1F1EE;--pinbg:#FAFAF8;
+  --blue:#2457D6;--blue-s:#EAF0FD;--blue-c:#F4F7FE;
+  --orange:#C2410C;--orange-t:#9A3412;--orange-s:#FFF4EC;
+  --green:#15803D;--green-s:#ECFDF3;
+  --red:#B42318;--red-s:#FEF3F2;
+  --page:#E8E8E3;--pline:#D9D9D2;
+  --ui:Inter,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  color-scheme:light;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--page);color:var(--ink);font:400 14px/1.45 var(--ui);-webkit-font-smoothing:antialiased}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none;padding:0;text-align:left}
+button:disabled{cursor:default}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+p,h1,h2,h3{margin:0}
+svg{flex:none}
+a{color:var(--blue)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+.screen{position:relative;max-width:780px;height:100dvh;margin:0 auto;background:#fff;display:flex;flex-direction:column;isolation:isolate}
+@media (min-width:820px){.screen{height:calc(100dvh - 32px);margin:16px auto;border-radius:24px;box-shadow:0 30px 60px -30px rgba(22,24,29,.45);border:1px solid var(--pline);overflow:hidden}}
+
+/* шапка */
+.hdr{flex:none;display:flex;align-items:center;gap:6px;padding:10px 10px 10px 8px;border-bottom:1px solid var(--line2)}
+.ib{width:44px;height:44px;border-radius:22px;display:grid;place-items:center;flex:none;position:relative;color:var(--ink)}
+.ib:hover{background:var(--card)}
+.ib .badge{position:absolute;top:3px;right:1px;min-width:18px;height:18px;font-size:11px;padding:0 5px}
+.who{flex:1;display:flex;align-items:center;gap:10px;min-width:0;padding:4px 8px 4px 4px;border-radius:14px}
+.who:hover{background:var(--card)}
+.who-t{display:flex;flex-direction:column;min-width:0}
+.who-t b{font-size:17px;font-weight:600;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.who-t span{font-size:13px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.av{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-size:15px;font-weight:600;flex:none;color:#fff;background:var(--ink)}
+.av.sm{width:32px;height:32px;border-radius:10px;font-size:13px}
+.badge{min-width:22px;height:22px;border-radius:11px;background:var(--blue);color:#fff;font-size:12px;font-weight:600;display:inline-grid;place-items:center;padding:0 6px;flex:none;font-variant-numeric:tabular-nums}
+.badge.or{background:var(--orange)}
+.pop{position:absolute;left:8px;top:62px;z-index:40;width:320px;max-width:calc(100% - 16px);max-height:70vh;overflow:auto;background:#fff;border:1px solid var(--pline);border-radius:14px;box-shadow:0 18px 40px -12px rgba(22,24,29,.3);padding:6px}
+.pop .cap3{font-size:11.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);padding:8px 10px 4px}
+.pop-i{display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:10px}
+.pop-i:hover,.pop-i[aria-checked="true"]{background:var(--card)}
+.pop-i b{display:block;font-weight:600;font-size:13.5px}
+.pop-i small{display:block;color:var(--mut);font-size:12px}
+
+/* полоса «что важно» под шапкой */
+.turn{flex:none;display:flex;align-items:center;gap:8px;width:100%;padding:8px 16px;background:var(--pinbg);border-bottom:1px solid var(--line2);font-size:13.5px;line-height:1.35;color:var(--ink2)}
+.turn svg{color:var(--orange)}
+.turn:hover{background:var(--card)}
+
+/* лента */
+.body{flex:1;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:#D4D4CE transparent;overscroll-behavior:contain}
+.chat{padding:14px 20px 12px;display:flex;flex-direction:column;gap:16px}
+.sep{align-self:center;font-size:12px;color:var(--mut);padding-top:2px}
+.m{display:flex;flex-direction:column;gap:10px;font-size:16px;line-height:1.45;min-width:0}
+.m.in{animation:mIn .32s ease both}
+.m.me{align-items:flex-end}
+.m.old .btn.pri{background:#fff;color:var(--ink);border-color:var(--line);font-weight:500}
+.bub{max-width:82%;padding:10px 14px;border-radius:18px;background:var(--bub);font-size:16px;line-height:1.4;white-space:pre-wrap;overflow-wrap:anywhere}
+.m p,.m li{overflow-wrap:anywhere}
+.m h3{font-size:17px;font-weight:600}
+.m ul,.m ol{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:4px}
+.m li ul{margin-top:4px;gap:2px}
+.m hr{border:0;border-top:1px solid var(--line2);margin:2px 0;width:100%}
+.m code{font:13.5px/1.4 ui-monospace,Consolas,monospace;background:var(--card);padding:1px 5px;border-radius:5px}
+.bot-h{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--faint)}
+.bot-h .dotb{width:18px;height:18px;border-radius:6px;background:var(--blue);color:#fff;display:grid;place-items:center}
+.err{padding:12px 14px;border-radius:14px;background:var(--red-s);color:var(--red);font-size:14.5px}
+
+/* карточка задачи */
+.task{display:flex;flex-direction:column;gap:8px;padding:14px 16px;border-radius:16px;background:var(--card2);border:1px solid var(--line2)}
+.task.is-prob{border-left:3px solid var(--orange)}
+.tk-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pill{font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;padding:2px 8px;border-radius:6px;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.pill.act{color:var(--green);background:var(--green-s)}
+.pill.prob{color:var(--orange-t);background:var(--orange-s)}
+.pill.side{color:var(--mut);background:var(--card)}
+.tk-meta{font-size:13px;color:var(--mut)}
+.tk-meta .late{color:var(--orange);font-weight:600}
+.tk-deal{font-size:14px;color:var(--mut)}
+.tk-deal b{color:var(--ink);font-weight:600}
+.tk-ask{font-size:16px;font-weight:500;line-height:1.4}
+
+/* кнопки */
+.btns{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{min-height:40px;padding:8px 16px;border-radius:20px;border:1px solid var(--line);background:#fff;font-size:14.5px;font-weight:500;display:inline-flex;align-items:center;justify-content:center;gap:8px;color:var(--ink);text-align:center;line-height:1.25}
+.btn:hover:not(:disabled){border-color:#AEB2B8}
+.btn.pri{background:var(--ink);border-color:var(--ink);color:#fff;font-weight:600}
+.btn.pri:hover:not(:disabled){background:#2B2E36}
+.btn:disabled{opacity:.45}
+.hint{font-size:13px;color:var(--mut)}
+
+/* печатает */
+.typing{display:inline-flex;gap:5px;padding:12px 2px}
+.typing i{width:7px;height:7px;border-radius:4px;background:var(--faint);animation:blink 1.2s infinite}
+.typing i:nth-child(2){animation-delay:.2s}.typing i:nth-child(3){animation-delay:.4s}
+
+/* низ: кнопки и строка ввода */
+.comp{flex:none;padding:8px 16px 16px;display:flex;flex-direction:column;gap:10px;background:#fff;border-top:1px solid var(--line2)}
+.quick{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding:2px 0}
+.quick::-webkit-scrollbar{display:none}
+.chip{flex:none;height:38px;padding:0 14px;border-radius:19px;border:1px solid var(--line);background:var(--card2);font-size:14px;font-weight:500;display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+.chip:hover:not(:disabled){border-color:#AEB2B8}
+.chip.pri{background:var(--ink);border-color:var(--ink);color:#fff}
+.chip.bell .badge{min-width:20px;height:20px;font-size:11.5px}
+.chip:disabled{opacity:.45}
+.comp-row{display:flex;align-items:center;gap:8px}
+.cin{flex:1;display:flex;align-items:center;height:48px;padding:0 6px 0 16px;border-radius:24px;border:1px solid var(--line);gap:8px;min-width:0}
+.cin:focus-within{border-color:#9AA0A6}
+.cin input{flex:1;border:0;outline:0;font-size:15px;background:transparent;min-width:0}
+.send{width:36px;height:36px;border-radius:18px;background:var(--ink);color:#fff;display:grid;place-items:center;flex:none}
+.send:disabled{opacity:.35}
+
+/* уведомления — лист поверх чата */
+.sheet{position:absolute;inset:0;z-index:50;background:#fff;display:flex;flex-direction:column;animation:up .22s ease}
+.sheet[hidden]{display:none}
+.big-t{font-size:28px;font-weight:700;letter-spacing:-.02em;padding:4px 20px 4px}
+.sub-t{font-size:14px;color:var(--mut);padding:0 20px 8px}
+.cap{font-size:13px;font-weight:600;color:var(--mut);padding:18px 20px 6px;text-transform:uppercase;letter-spacing:.06em;display:flex;gap:8px;align-items:center}
+.n-list{display:flex;flex-direction:column;gap:8px;padding:0 16px}
+.n-item{display:flex;align-items:flex-start;gap:12px;padding:13px 16px;border-radius:16px;background:var(--card);width:100%;color:var(--ink)}
+button.n-item:hover{background:#EDEDEA}
+.dot{width:8px;height:8px;border-radius:4px;flex:none;background:var(--blue);margin-top:7px}
+.dot.or{background:var(--orange)}
+.dot.hol{background:transparent;border:1.5px solid var(--faint)}
+.n-t{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
+.n-o{font-size:13px;color:var(--mut)}
+.n-a{font-size:15.5px;font-weight:600;line-height:1.35}
+.n-x{font-size:14px;color:var(--ink2);line-height:1.4}
+.n-go{font-size:13px;color:var(--blue);font-weight:500;margin-top:2px}
+.empty{margin:8px 16px;padding:16px;border-radius:16px;background:var(--card2);display:flex;flex-direction:column;gap:4px;font-size:14px;color:var(--mut)}
+.empty b{font-size:16px;font-weight:600;color:var(--ink)}
+.sheet-f{padding:16px 20px 24px;font-size:13px}
+
+@keyframes blink{0%,80%,100%{opacity:.35}40%{opacity:1}}
+@keyframes mIn{from{transform:translateY(6px);opacity:0}to{transform:none;opacity:1}}
+@keyframes up{from{transform:translateY(24px);opacity:.4}to{transform:none;opacity:1}}
+@media (max-width:480px){.chat{padding:12px 14px}.comp{padding:8px 12px 12px}.big-t{font-size:24px}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}}
+</style>
+</head>
+<body>
+<div class="screen" id="screen">
+  <div class="hdr">
+    <button class="who" id="who" aria-haspopup="true" aria-expanded="false"></button>
+    <button class="ib" id="bell" aria-label="Уведомления"></button>
+    <button class="ib" id="fresh" aria-label="Новый разговор" title="Новый разговор"></button>
+  </div>
+  <div id="pop"></div>
+  <button class="turn" id="turn" hidden></button>
+  <div class="body" id="body"><div class="chat" id="chat" aria-live="polite"></div></div>
+  <div class="comp">
+    <div class="quick" id="quick" role="group" aria-label="Быстрые кнопки"></div>
+    <form class="comp-row" id="form">
+      <div class="cin"><label class="sr" for="in">Сообщение</label>
+        <input id="in" autocomplete="off" placeholder="Напишите агенту или нажмите кнопку">
+        <button class="send" id="send" aria-label="Отправить"></button></div>
+    </form>
+  </div>
+  <section class="sheet" id="sheet" hidden aria-label="Уведомления"></section>
+</div>
+<script>
+const IC = {
+  bell: '<path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10.3 20a1.9 1.9 0 0 0 3.4 0"/>',
+  send: '<path d="M12 19V5M5 12l7-7 7 7"/>',
+  spark: '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  back: '<path d="M15 18l-6-6 6-6"/>',
+  down: '<path d="M6 9l6 6 6-6"/>',
+  alert: '<path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>',
+};
+const ic = (n, s = 20, w = 2) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[n]}</svg>`;
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+const $ = id => document.getElementById(id);
+const COLORS = ["#2457D6", "#15803D", "#C2410C", "#7C3AED", "#0E7490", "#B45309", "#16181D"];
+const MENU = [{label: "Что на мне сегодня", msg: "Сегодня", pri: true}, {label: "Мои проекты", msg: "Мои проекты"}];
+const MENU_MSGS = new Set(MENU.map(b => b.msg));
+const GROUPS = [
+  ["overdue", "Просрочено"], ["escalation", "Эскалации"], ["held", "Сделка стоит"], ["today", "Срок сегодня"],
+  ["problem", "Проблемы по сделкам"], ["soon", "Напоминания"], ["new", "Новые задачи"], ["info", "Изменения по сделкам"],
+];
+const MINE = new Set(["overdue", "today", "soon", "new"]);
+
+const store = {
+  get(k) { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } },
+  set(k, v) { try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k); } catch (e) { /* без хранилища — просто не помним */ } },
+};
+const S = { agents: [], agent: "", conv: "", msgs: [], busy: false, inbox: null, pop: false, sheet: false };
+
+/* ---------- разбор ответа агента (markdown Dify + <button data-message>) ---------- */
+const BTN_RE = /<button\b[^>]*>[\s\S]*?<\/button>/g;
+const parser = new DOMParser();
+function buttonsIn(line) {
+  return (line.match(BTN_RE) || []).map(h => {
+    const el = parser.parseFromString(h, "text/html").body.firstElementChild;
+    return el ? {label: el.textContent.trim(), msg: el.getAttribute("data-message") || el.textContent.trim(), pri: el.getAttribute("data-variant") === "primary"} : null;
+  }).filter(Boolean);
+}
+function inline(s) {
+  return esc(s)
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+    .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
+    .replace(/(^|[^*\w])\*([^*\n]+)\*(?!\w)/g, "$1<i>$2</i>")
+    .replace(/`([^`]+)`/g, "<code>$1</code>");
+}
+function parse(md) {
+  md = String(md || "").replace(/\r/g, "").replace(/\[🔔[^\]]*\]\([^)]*\)/g, "");
+  const blocks = [];
+  let cur = null;
+  for (const raw of md.split("\n")) {
+    if (!raw.trim()) { cur = null; continue; }
+    const btns = buttonsIn(raw), text = raw.replace(BTN_RE, "").trim();
+    const num = raw.match(/^\s{0,2}(\d+)\.\s+(.*)$/);
+    if (num) { cur = {t: "item", n: +num[1], head: num[2].replace(BTN_RE, "").trim(), lines: [], btns}; blocks.push(cur); continue; }
+    if (cur && cur.t === "item" && /^\s{2,}/.test(raw)) { if (text) cur.lines.push(text); cur.btns.push(...btns); continue; }
+    if (btns.length && !text) { blocks.push({t: "btns", btns}); cur = null; continue; }
+    if (/^-{3,}$/.test(text)) { blocks.push({t: "hr"}); cur = null; continue; }
+    const h = text.match(/^#{1,4}\s+(.*)$/);
+    if (h) { blocks.push({t: "h", text: h[1]}); cur = null; continue; }
+    const li = raw.match(/^\s*[-*•]\s+(.*)$/);
+    if (li) {
+      if (!cur || cur.t !== "ul") { cur = {t: "ul", items: []}; blocks.push(cur); }
+      cur.items.push(li[1].replace(BTN_RE, "").trim());
+      if (btns.length) { blocks.push({t: "btns", btns}); cur = null; }
+      continue;
+    }
+    if (cur && cur.t === "p") cur.lines.push(text); else { cur = {t: "p", lines: [text]}; blocks.push(cur); }
+    if (btns.length) { blocks.push({t: "btns", btns}); cur = null; }
+  }
+  return blocks;
+}
+const btnHTML = (b, cls = "btn") => `<button class="${cls}${b.pri ? " pri" : ""}" data-q="${esc(b.msg)}" data-l="${esc(b.label)}">${esc(b.label)}</button>`;
+function itemHTML(it) {
+  // «**Сделка** · Данил · Этап · карточка 9 · срок 26.11 · держит переход» → карточка задачи, как в прототипе
+  const m = it.head.match(/^(⚠️\s*)?\*\*(.+?)\*\*\s*(?:·\s*(.*))?$/);
+  if (!it.btns.length || !m) {
+    // обычный нумерованный пункт ответа LLM; вложенные «* …» — подсписком
+    let body = "", sub = [];
+    const flush = () => { if (sub.length) body += `<ul>${sub.map(x => `<li>${inline(x)}</li>`).join("")}</ul>`; sub = []; };
+    for (const l of it.lines) {
+      const b = l.match(/^[-*•]\s+(.*)$/);
+      if (b) sub.push(b[1]); else { flush(); body += "<br>" + inline(l); }
+    }
+    flush();
+    return `<ol start="${it.n || 1}"><li>${inline(it.head)}${body}</li></ol>${it.btns.length ? `<div class="btns">${it.btns.map(b => btnHTML(b)).join("")}</div>` : ""}`;
+  }
+  const prob = !!m[1], parts = (m[3] || "").split(" · ").filter(Boolean);
+  let step = "", due = "", holds = null; const rest = [];
+  for (const p of parts) {
+    if (/^карточка/.test(p)) step = p.replace("карточка", "Шаг");
+    else if (/^(срок|просрочено)/.test(p)) due = p;
+    else if (/переход/.test(p)) holds = !/не держит/.test(p);
+    else rest.push(p);
+  }
+  const late = /просрочено|сегодня/.test(due);
+  const pill = prob ? '<span class="pill prob">Проблема</span>' : holds === false ? '<span class="pill side">Параллельно</span>' : '<span class="pill act">Нужно действие</span>';
+  const meta = [step, ...rest.slice(1)].filter(Boolean).map(esc).join(" · ") + (due ? ` · <span class="${late ? "late" : ""}">${esc(due)}</span>` : "");
+  return `<div class="task${prob ? " is-prob" : ""}"><div class="tk-top">${pill}<span class="tk-meta">${meta}</span></div>
+    <div class="tk-deal"><b>${esc(m[2])}</b>${rest[0] ? " · " + esc(rest[0]) : ""}${holds ? " · держит переход" : ""}</div>
+    ${it.lines.map(l => `<p class="tk-ask">${inline(l)}</p>`).join("")}
+    <div class="btns">${it.btns.map(b => btnHTML(b)).join("")}</div></div>`;
+}
+function answerHTML(md) {
+  let out = "";
+  for (const b of parse(md)) {
+    if (b.t === "p") out += `<p>${b.lines.map(inline).join("<br>")}</p>`;
+    else if (b.t === "item") out += itemHTML(b);
+    else if (b.t === "ul") out += `<ul>${b.items.map(x => `<li>${inline(x)}</li>`).join("")}</ul>`;
+    else if (b.t === "h") out += `<h3>${inline(b.text)}</h3>`;
+    else if (b.t === "hr") out += "<hr>";
+    else if (b.t === "btns") {
+      const own = b.btns.filter(x => !MENU_MSGS.has(x.msg)); // меню — всегда внизу, не в сообщении
+      if (own.length) out += `<div class="btns">${own.map(x => btnHTML(x)).join("")}</div>`;
+    }
+  }
+  return out;
+}
+// Как показать команду кнопки в пузыре пользователя: без служебного id и номера варианта.
+function shown(q) {
+  q = String(q || "");
+  let m = q.match(/^Вариант:\s*(.+?)\s·\s/);
+  if (m) return m[1];
+  if (q === "Сегодня") return "Что на мне сегодня";
+  return q.replace(/\s*\[[0-9a-f]{8}\]\s*$/, "").replace(/\s*#\d+\s*$/, "").replace(/\s{2,}/g, " ");
+}
+
+/* ---------- отрисовка ---------- */
+const dayKey = t => new Date(t * 1000).toDateString();
+function sepText(t) {
+  const d = new Date(t * 1000), now = new Date();
+  const hm = d.toLocaleTimeString("ru-RU", {hour: "2-digit", minute: "2-digit"});
+  const days = Math.round((new Date(now.toDateString()) - new Date(d.toDateString())) / 864e5);
+  return (days === 0 ? "Сегодня" : days === 1 ? "Вчера" : d.toLocaleDateString("ru-RU", {day: "numeric", month: "long"})) + ", " + hm;
+}
+function renderChat(animateFrom = Infinity) {
+  const body = $("body"), nearBottom = body.scrollHeight - body.scrollTop - body.clientHeight < 120;
+  let out = "", prev = null;
+  const lastBot = S.msgs.map(m => m.from).lastIndexOf("bot");
+  S.msgs.forEach((m, i) => {
+    if (m.at && (prev === null || dayKey(m.at) !== dayKey(prev))) out += `<div class="sep">${esc(sepText(m.at))}</div>`;
+    if (m.at) prev = m.at;
+    const a = i >= animateFrom ? " in" : "";
+    if (m.from === "me") { out += `<div class="m me${a}"><div class="bub">${esc(m.text)}</div></div>`; return; }
+    const head = `<div class="bot-h"><span class="dotb">${ic("spark", 11, 2.4)}</span>Entryx AI</div>`;
+    let inner = m.text ? answerHTML(m.text) : "";
+    if (!m.text && m.pending) inner = '<div class="typing" aria-label="Агент печатает"><i></i><i></i><i></i></div>';
+    if (m.err) inner += `<div class="err">Агент не ответил: ${esc(m.err)}</div><div class="btns"><button class="btn" data-retry="1">Повторить</button></div>`;
+    out += `<div class="m${i < lastBot ? " old" : ""}${a}">${head}${inner}</div>`;
+  });
+  $("chat").innerHTML = out;
+  $("chat").querySelectorAll("button").forEach(b => b.disabled = S.busy);
+  if (nearBottom || animateFrom !== Infinity) body.scrollTop = body.scrollHeight;
+}
+function renderHeader() {
+  const a = S.agents.find(x => x.key === S.agent) || {title: S.agent, people: []};
+  const idx = S.agents.indexOf(a);
+  $("who").innerHTML = `<span class="av" style="background:${COLORS[idx % COLORS.length] || "var(--ink)"}">${esc((a.people[0] || a.title || "?")[0])}</span><span class="who-t"><b>${esc(a.people.join(", ") || a.title)}</b><span>${esc(a.title)} · сменить роль</span></span>${ic("down", 16)}`;
+  $("who").setAttribute("aria-expanded", S.pop);
+  $("pop").innerHTML = S.pop ? `<div class="pop" role="menu"><p class="cap3">Кто вы в этой вкладке</p>${S.agents.map((x, i) => `<button class="pop-i" role="menuitemradio" aria-checked="${x.key === S.agent}" data-agent="${x.key}"><span class="av sm" style="background:${COLORS[i % COLORS.length]}">${esc((x.people[0] || "?")[0])}</span><span><b>${esc(x.people.join(", "))}</b><small>${esc(x.title)}</small></span></button>`).join("")}</div>` : "";
+  const hot = S.inbox ? S.inbox.hot : 0;
+  $("bell").innerHTML = ic("bell", 22, 1.8) + (hot ? `<span class="badge or">${hot}</span>` : "");
+  $("bell").setAttribute("aria-label", hot ? `Уведомления, важных: ${hot}` : "Уведомления");
+  $("fresh").innerHTML = ic("plus", 22, 1.8);
+  document.title = (hot ? `(${hot}) ` : "") + (a.people.join(", ") || "Чат") + " · Entryx AI";
+  renderTurn(); renderQuick();
+}
+function renderTurn() {
+  const t = $("turn"), d = S.inbox;
+  const hot = d ? d.items.filter(i => i.hot) : [];
+  t.hidden = !hot.length;
+  if (!hot.length) return;
+  const first = hot[0], label = (GROUPS.find(g => g[0] === first.kind) || [, ""])[1];
+  t.innerHTML = `${ic("alert", 15, 2.2)}<span><b>${esc(label)}:</b> ${esc(first.title || first.text)}${hot.length > 1 ? ` · и ещё ${hot.length - 1}` : ""}</span>`;
+}
+function renderQuick() {
+  const hot = S.inbox ? S.inbox.hot : 0;
+  $("quick").innerHTML = MENU.map(b => btnHTML(b, "chip")).join("") +
+    `<button class="chip bell" data-sheet="1">${ic("bell", 16, 2)}Уведомления${hot ? `<span class="badge or">${hot}</span>` : ""}</button>`;
+  $("quick").querySelectorAll("[data-q]").forEach(b => b.disabled = S.busy);
+  $("send").innerHTML = ic("send", 16, 2.4);
+  $("send").disabled = S.busy;
+  const last = [...S.msgs].reverse().find(m => m.from === "bot");
+  $("in").placeholder = last && /причин/i.test(last.text || "") && /Отмена/.test(last.text || "") ? "Напишите причину — запишу в сделку" : "Напишите агенту или нажмите кнопку";
+}
+function renderSheet() {
+  const el = $("sheet");
+  el.hidden = !S.sheet;
+  if (!S.sheet) return;
+  const d = S.inbox;
+  let html = `<div class="hdr"><button class="ib" data-close="1" aria-label="Назад к чату">${ic("back", 22)}</button><div class="who-t" style="flex:1"><b>Уведомления</b><span>${esc(d ? d.people.join(", ") : "")} · обновляется само</span></div></div><div class="body">`;
+  if (!d) html += '<div class="empty"><b>Загружаю…</b></div>';
+  else if (!d.items.length) html += '<div class="empty" style="margin-top:16px"><b>Всё спокойно</b>Просрочек, эскалаций и проблем нет.</div>';
+  else {
+    for (const [k, name] of GROUPS) {
+      const list = d.items.filter(i => i.kind === k);
+      if (!list.length) continue;
+      html += `<div class="cap">${esc(name)}<span class="badge${list.some(i => i.hot) ? " or" : ""}">${list.length}</span></div><div class="n-list">`;
+      for (const i of list) {
+        const mine = MINE.has(k);
+        const when = i.at ? new Date(i.at).toLocaleString("ru-RU", {day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit"}) : "";
+        html += `<button class="n-item" ${mine ? 'data-q="Сегодня" data-l="Что на мне сегодня"' : 'data-q="Мои проекты" data-l="Мои проекты"'}><span class="dot${i.hot ? " or" : k === "info" ? " hol" : ""}"></span><span class="n-t"><span class="n-o">${esc([i.deal, i.stage].filter(Boolean).join(" · "))}${when ? " · " + esc(when) : ""}</span>${i.title ? `<span class="n-a">${esc(i.title)}</span>` : ""}<span class="n-x">${esc(i.text)}</span><span class="n-go">${mine ? "Ответить в чате →" : "Открыть сделку в чате →"}</span></span></button>`;
+      }
+      html += "</div>";
+    }
+  }
+  html += `<p class="sheet-f mut"><a href="/inbox?agent=${encodeURIComponent(S.agent)}" target="_blank" rel="noopener">Открыть отдельной страницей</a></p></div>`;
+  el.innerHTML = html;
+}
+
+/* ---------- данные ---------- */
+async function loadInbox() {
+  try {
+    const r = await fetch("/api/inbox?agent=" + encodeURIComponent(S.agent));
+    if (r.ok) { S.inbox = await r.json(); renderHeader(); renderSheet(); }
+  } catch (e) { /* мост недоступен — бейдж просто не обновится */ }
+}
+async function loadHistory(conv) {
+  S.msgs = []; renderChat();
+  try {
+    const r = await fetch(`/api/history?agent=${encodeURIComponent(S.agent)}&conversation_id=${encodeURIComponent(conv || "")}`);
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || r.status);
+    S.conv = d.conversation_id || "";
+    if (S.conv) store.set("entryx.conv." + S.agent, S.conv);
+    const msgs = [];
+    if (d.opening) msgs.push({from: "bot", text: d.opening});
+    for (const m of d.messages) {
+      if (m.query) msgs.push({from: "me", text: shown(m.query), at: m.at});
+      msgs.push({from: "bot", text: m.answer, at: m.at});
+    }
+    S.msgs = msgs;
+  } catch (e) {
+    S.msgs = [{from: "bot", text: "", err: "история не загрузилась (" + e.message + "). Мост или Dify не отвечает."}];
+  }
+  renderChat(); renderQuick();
+}
+let lastQuery = null;
+async function send(query, label) {
+  query = String(query || "").trim();
+  if (!query || S.busy) return;
+  lastQuery = [query, label];
+  S.busy = true;
+  const start = S.msgs.length, now = Date.now() / 1000;
+  S.msgs.push({from: "me", text: label || shown(query), at: now});
+  const bot = {from: "bot", text: "", pending: true, at: now};
+  S.msgs.push(bot);
+  renderChat(start); renderQuick();
+  let raf = 0;
+  const paint = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; renderChat(); }); };
+  try {
+    const r = await fetch("/api/chat", {method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({agent: S.agent, query, conversation_id: S.conv})});
+    if (!r.ok || !r.body) throw new Error("мост ответил " + r.status);
+    const reader = r.body.getReader(), dec = new TextDecoder();
+    let buf = "";
+    for (;;) {
+      const {value, done} = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, {stream: true});
+      let cut;
+      while ((cut = buf.indexOf("\n\n")) >= 0) {
+        const chunk = buf.slice(0, cut); buf = buf.slice(cut + 2);
+        const line = chunk.split("\n").find(l => l.startsWith("data:"));
+        if (!line) continue;
+        let ev; try { ev = JSON.parse(line.slice(5)); } catch (e) { continue; }
+        if (ev.conversation_id && ev.conversation_id !== S.conv) { S.conv = ev.conversation_id; store.set("entryx.conv." + S.agent, S.conv); }
+        if (ev.event === "message" || ev.event === "agent_message") { bot.text += ev.answer || ""; paint(); }
+        else if (ev.event === "message_replace") { bot.text = ev.answer || ""; paint(); }
+        else if (ev.event === "error") { bot.err = ev.message || "ошибка"; }
+      }
+    }
+    if (!bot.text && !bot.err) bot.err = "пустой ответ";
+  } catch (e) {
+    bot.err = e.message;
+  }
+  bot.pending = false; S.busy = false;
+  cancelAnimationFrame(raf); raf = 0;
+  renderChat(); renderQuick();
+  $("in").focus();
+  setTimeout(loadInbox, 1500); // ответ кнопкой меняет задачи — обновим уведомления
+}
+async function pickAgent(key, conv) {
+  S.agent = key; S.pop = false; S.inbox = null; S.sheet = false;
+  store.set("entryx.agent", key);
+  const u = new URL(location.href); u.searchParams.set("agent", key); history.replaceState(null, "", u);
+  renderHeader(); renderSheet();
+  await Promise.all([loadHistory(conv ?? store.get("entryx.conv." + key)), loadInbox()]);
+}
+
+/* ---------- события ---------- */
+function closeSheet() {
+  S.sheet = false; renderSheet();
+  if (location.hash) history.replaceState(null, "", location.pathname + location.search); // #inbox из ссылки Dify больше не нужен
+}
+document.addEventListener("click", e => {
+  const t = e.target.closest("button, a");
+  if (!t) { if (S.pop) { S.pop = false; renderHeader(); } return; }
+  if (t.id === "who") { S.pop = !S.pop; renderHeader(); return; }
+  if (t.dataset.agent) { pickAgent(t.dataset.agent); return; }
+  if (S.pop) { S.pop = false; renderHeader(); }
+  if (t.id === "bell" || t.id === "turn" || t.dataset.sheet) { S.sheet = true; renderSheet(); loadInbox(); return; }
+  if (t.dataset.close) { closeSheet(); return; }
+  if (t.id === "fresh") { store.set("entryx.conv." + S.agent, ""); S.conv = ""; loadHistory("new"); return; }
+  if (t.dataset.retry && lastQuery) { S.msgs.splice(-2, 2); send(...lastQuery); return; }
+  if (t.dataset.q) { if (S.sheet) closeSheet(); send(t.dataset.q, t.dataset.l); }
+});
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") { if (S.sheet) closeSheet(); else if (S.pop) { S.pop = false; renderHeader(); } }
+});
+$("form").addEventListener("submit", e => {
+  e.preventDefault();
+  const v = $("in").value.trim();
+  if (!v || S.busy) return;
+  $("in").value = "";
+  send(v);
+});
+
+(async function boot() {
+  try { S.agents = await (await fetch("/api/agents")).json(); } catch (e) { S.agents = []; }
+  const qs = new URLSearchParams(location.search);
+  const want = qs.get("agent") || store.get("entryx.agent") || "manager";
+  await pickAgent(S.agents.some(a => a.key === want) ? want : (S.agents[0] || {key: "manager"}).key);
+  // Пришли со страницы уведомлений (?ask=Сегодня) — сразу показываем это в чате; из чата Dify (#inbox) — открываем уведомления.
+  const ask = qs.get("ask");
+  if (ask) {
+    const u = new URL(location.href); u.searchParams.delete("ask"); u.hash = ""; history.replaceState(null, "", u);
+    send(ask);
+  } else if (location.hash === "#inbox") { S.sheet = true; renderSheet(); }
+  setInterval(loadInbox, 20000);
+})();
+</script>
+</body>
+</html>

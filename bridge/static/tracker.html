@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Entryx · трекер проектов</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Onest:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: KPI strip → board of 7 phase columns → detail drawer on the right (stacks under the board on narrow screens). */
+:root{
+  --bg:#F2F4F7; --surface:#FFFFFF; --sunken:#EAEEF3; --ink:#141922; --muted:#586172; --faint:#8A93A2; --line:#D9DEE6;
+  --accent:#2747C9; --accent-soft:#E6EBFB;
+  --stop:#C23B3B; --stop-soft:#FCEBEB; --late:#B4400E; --late-soft:#FBEADF; --ok:#16774A; --ok-soft:#E0F1E7; --closed:#586172; --closed-soft:#EAEEF3;
+  --f-ui:"Onest",system-ui,-apple-system,"Segoe UI",sans-serif; --f-mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#12151B; --surface:#1A1F28; --sunken:#222833; --ink:#E7EAF0; --muted:#A3ACBB; --faint:#78818F; --line:#2E3542;
+  --accent:#8EA4FF; --accent-soft:#232C4D;
+  --stop:#F08A8A; --stop-soft:#3A1E21; --late:#F2A07A; --late-soft:#3A2418; --ok:#7AD3A5; --ok-soft:#163026; --closed:#A3ACBB; --closed-soft:#222833; color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 var(--f-ui)}
+header{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:14px 20px;background:var(--surface);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px}
+.logo{width:30px;height:30px;border-radius:8px;background:var(--accent);color:#fff;display:grid;place-items:center;font-weight:700}
+.brand b{display:block;font-size:15px}.brand span{font-size:12px;color:var(--muted)}
+header .sp{flex:1}
+.upd{font:12px var(--f-mono);color:var(--faint)}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+main{display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:16px;padding:16px 20px;align-items:start}
+@media (max-width:1100px){main{grid-template-columns:1fr}}
+main>section,aside{min-width:0}
+.kpi{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin-bottom:14px}
+@media (max-width:800px){.kpi{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.kp{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;text-align:left;font:inherit;color:inherit;cursor:pointer}
+.kp span{display:block;font-size:12px;color:var(--muted)}.kp b{font-size:22px;font-variant-numeric:tabular-nums}
+.kp.on{outline:2px solid var(--accent);outline-offset:-1px}
+.kp.stop b{color:var(--stop)}.kp.late b{color:var(--late)}.kp.ok b{color:var(--ok)}
+.board{display:grid;grid-template-columns:repeat(7,minmax(180px,1fr));gap:10px;overflow-x:auto;padding-bottom:6px}
+.col{background:var(--sunken);border-radius:10px;padding:8px;min-height:160px;display:flex;flex-direction:column;gap:8px}
+.col h3{margin:2px 4px 4px;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between}
+.card{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--ok);border-radius:8px;padding:9px 10px;cursor:pointer;display:grid;gap:4px;text-align:left;font:inherit;color:inherit}
+.card.stop{border-left-color:var(--stop)}.card.late{border-left-color:var(--late)}.card.closed,.card.service{border-left-color:var(--closed)}
+.card.sel{outline:2px solid var(--accent);outline-offset:-1px}
+.card b{font-size:13.5px}.card .st{font-size:12px;color:var(--muted)}.card .who{font-size:12.5px}
+.chip{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px}
+.chip.ok{background:var(--ok-soft);color:var(--ok)}.chip.stop{background:var(--stop-soft);color:var(--stop)}
+.chip.late{background:var(--late-soft);color:var(--late)}.chip.closed,.chip.service{background:var(--closed-soft);color:var(--closed)}
+.empty{color:var(--faint);font-size:12px;padding:4px}
+aside{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:grid;gap:14px;position:sticky;top:12px}
+aside h2{margin:0;font-size:18px}
+.strip{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.strip div{font-size:10.5px;text-align:center;color:var(--faint)}
+.strip div::before{content:"";display:block;height:6px;border-radius:3px;background:var(--line);margin-bottom:4px}
+.strip .done{color:var(--muted)}.strip .done::before{background:var(--accent)}
+.strip .cur{color:var(--accent);font-weight:600}.strip .cur::before{background:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+.facts{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13px}.facts span{color:var(--muted)}
+.sec h4{margin:0 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.item{padding:8px 10px;border:1px solid var(--line);border-radius:8px;margin-bottom:6px}
+.item .p{font-weight:600}.item .t{font-size:13px}.item .m{font-size:12px;color:var(--muted)}
+.item.late{border-color:var(--late)}.item.late .m{color:var(--late)}
+.held{background:var(--stop-soft);color:var(--stop);border-radius:8px;padding:8px 10px;font-weight:500}
+.ev{display:grid;grid-template-columns:86px 1fr;gap:8px;font-size:12.5px;padding:4px 0;border-bottom:1px dashed var(--line)}
+.ev time{font:11.5px var(--f-mono);color:var(--faint)}
+.ev.stage,.ev.manual{font-weight:600}.ev.held{color:var(--stop)}.ev.manual{color:var(--late)}
+.hint{color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><span class="logo">E</span><div><b>ENTRYX · трекер проектов</b><span>Где каждая сделка, на ком она и что дальше. Данные из CRM и процесса.</span></div></div>
+  <div class="sp"></div>
+  <a href="http://localhost:3000/objects/opportunities" target="_blank" rel="noopener">Открыть CRM</a>
+  <span class="upd" id="upd">загрузка…</span>
+</header>
+<main>
+  <section>
+    <div class="kpi" id="kpi"></div>
+    <div class="board" id="board"></div>
+  </section>
+  <aside id="detail"><p class="hint">Выберите сделку на доске: здесь появится полоса фаз, кто сейчас держит шаг, что дальше и история.</p></aside>
+</main>
+<script>
+const ST = {ok:'По плану', stop:'Стоит', late:'Просрочено', closed:'Оплачено', service:'Отложена'};
+let DATA = null, SEL = location.hash.slice(1) || null, FILTER = null;
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmtT = iso => { const d = new Date(iso); return d.toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit'})+' '+d.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}); };
+const who = list => list.length ? list.map(x => `${esc(x.person)} (${esc(x.card)})`).join(', ') : '';
+
+function kpi(){
+  const k = DATA.kpi, tiles = [['active','В работе',k.active,null],['stop','Стоят',k.stop,'stop'],['late','Просрочены',k.late,'late'],['ok','По плану',k.ok,'ok'],['doors','Дверей в пути',k.doors_in_transit,null],['closed','Оплачено',k.closed,'closed']];
+  document.getElementById('kpi').innerHTML = tiles.map(([id,l,v,f]) =>
+    `<button class="kp ${id}${FILTER && FILTER===f ? ' on':''}" data-f="${f||''}"><span>${l}</span><b>${v}</b></button>`).join('');
+  document.querySelectorAll('.kp').forEach(b => b.onclick = () => { const f = b.dataset.f || null; FILTER = (FILTER === f ? null : f); render(); });
+}
+
+function board(){
+  const deals = DATA.deals.filter(d => !FILTER || d.status === FILTER);
+  document.getElementById('board').innerHTML = DATA.phases.map((ph,i) => {
+    const ds = deals.filter(d => d.phase === i);
+    return `<div class="col"><h3>${esc(ph)}<span>${ds.length}</span></h3>${ds.map(d => `
+      <button class="card ${d.status}${d.id===SEL?' sel':''}" data-id="${d.id}">
+        <b>${esc(d.name)}</b>
+        <span class="st">${esc(d.stage_label)}${d.days_on_stage!=null?` · ${d.days_on_stage} дн.`:''}</span>
+        <span class="who">${d.now.length ? 'Сейчас: '+who(d.now) : (d.held ? 'Стоит' : 'Ждёт бота')}</span>
+        <span><span class="chip ${d.status}">${ST[d.status]}</span></span>
+      </button>`).join('') || '<div class="empty">нет сделок</div>'}</div>`;
+  }).join('');
+  document.querySelectorAll('.card').forEach(c => c.onclick = () => { SEL = c.dataset.id; history.replaceState(null,'','#'+SEL); render(); });
+}
+
+function detail(){
+  const d = DATA.deals.find(x => x.id === SEL);
+  const el = document.getElementById('detail');
+  if (!d){ el.innerHTML = '<p class="hint">Выберите сделку на доске: здесь появится полоса фаз, кто сейчас держит шаг, что дальше и история.</p>'; return; }
+  const strip = DATA.phases.map((p,i) => `<div class="${i<d.phase?'done':i===d.phase?'cur':''}">${esc(p)}</div>`).join('');
+  const item = x => `<div class="item${x.late?' late':''}"><div class="p">${esc(x.person)} · ${esc(x.role_name)} · карточка ${esc(x.card)}</div><div class="t">${esc(x.title||'')}</div>${x.due?`<div class="m">${x.late?'просрочено, ':''}срок ${esc(x.due)}</div>`:''}</div>`;
+  const facts = [['Этап', d.stage_label], ['На этапе', d.days_on_stage!=null ? d.days_on_stage+' дн.' : '—'], ['Завод', d.factory], ['Дверей', d.doors], ['Сумма', d.amount!=null ? d.amount.toLocaleString('ru-RU')+' '+(d.currency||'') : null], ['Объект', d.address], ['Флаги', d.flags.join(', ')]].filter(f => f[1]);
+  el.innerHTML = `
+    <div><h2>${esc(d.name)}</h2><span class="chip ${d.status}">${ST[d.status]}</span> · <a href="${d.crm_url}" target="_blank" rel="noopener">открыть в CRM</a></div>
+    <div class="strip">${strip}</div>
+    ${d.held ? `<div class="held">Стоит: ${esc(d.held)}</div>` : ''}
+    <div class="facts">${facts.map(f => `<span>${esc(f[0])}</span><div>${esc(f[1])}</div>`).join('')}</div>
+    <div class="sec"><h4>Сейчас на ком</h4>${d.now.length ? d.now.map(item).join('') : `<p class="hint">${d.held ? 'Шаги выполнены, но сделка стоит: см. причину выше.' : 'Блокирующих задач нет: бот переводит сделку дальше.'}</p>`}</div>
+    <div class="sec"><h4>Дальше</h4><p class="hint">${d.next.length ? 'На этом этапе: '+who(d.next)+(d.next_stage?' → затем этап «'+esc(d.next_stage)+'»':'') : (d.next_stage ? 'Следующий этап: «'+esc(d.next_stage)+'»' : 'Последний этап')}</p></div>
+    ${d.side.length ? `<div class="sec"><h4>Параллельно и хвосты</h4>${d.side.map(x => item({...x, title: (x.leftover?'Хвост с этапа «'+x.stage_label+'»: ':'')+x.title})).join('')}</div>` : ''}
+    <div class="sec"><h4>История</h4>${d.events.length ? d.events.map(e => `<div class="ev ${e.kind}"><time>${fmtT(e.at)}</time><div>${esc(e.text)}</div></div>`).join('') : '<p class="hint">История начнёт записываться с этого момента.</p>'}</div>`;
+}
+
+function render(){ if (!DATA) return; kpi(); board(); detail(); }
+
+async function load(){
+  try {
+    const r = await fetch('/api/tracker'); DATA = await r.json();
+    if (!SEL && DATA.deals.length) SEL = DATA.deals[0].id;
+    document.getElementById('upd').textContent = 'обновлено ' + new Date().toLocaleTimeString('ru-RU');
+    render();
+  } catch (e) { document.getElementById('upd').textContent = 'мост недоступен, повтор через 5 с'; }
+}
+load(); setInterval(load, 5000);
+</script>
+</body>
+</html>

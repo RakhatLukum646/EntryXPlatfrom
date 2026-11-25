@@ -1,0 +1,341 @@
+# Процесс поставки ENTRYX по карте процессов v4 (24.11.2026).
+# Это единственный источник: из него мост создаёт задачи в CRM, а генератор собирает агентов Dify.
+#
+# Этап CRM -> волны. Волна — набор задач, которые идут параллельно.
+# Следующая волна открывается, когда закрыты все блокирующие задачи предыдущей.
+# Когда закрыта последняя волна, мост переводит сделку на `next`.
+# `when` — шаг или этап нужен, только если в сделке стоит этот флаг (поле-галочка в CRM).
+# `blocking: false` — задача не держит переход (параллельная дорожка, например монтаж).
+
+roles:
+  manager:  {name: "Менеджер",            person: "Данил",     agent: manager}
+  yulia:    {name: "Закупщик",            person: "Юлия",      agent: zakupka}
+  zhenya:   {name: "Опердир",             person: "Женя",      agent: rukovoditel}
+  madina:   {name: "Финдир",              person: "Мадина",    agent: finance}
+  anara:    {name: "Бухгалтер, СНТ",      person: "Анара",     agent: finance}
+  sveta:    {name: "Бухгалтер, договоры", person: "Светлана",  agent: logistika}
+  buh:      {name: "Бухгалтерия",         person: "Бухгалтерия", agent: finance}
+  ruslan:   {name: "Логист",              person: "Руслан",    agent: logistika}
+  erkanat:  {name: "Приёмка",             person: "Ерканат",   agent: priemka}
+  alex:     {name: "Монтаж",              person: "Александр", agent: montazh}
+  sultan:   {name: "ПТО",                 person: "Султан",    agent: montazh}
+
+agents:
+  zakupka:     {title: "Агент закупки",           roles: [yulia]}
+  manager:     {title: "Агент менеджера сделки",  roles: [manager]}
+  logistika:   {title: "Агент логистики",         roles: [ruslan, sveta]}
+  finance:     {title: "Агент финансов",          roles: [anara, buh, madina]}
+  priemka:     {title: "Агент приёмки",           roles: [erkanat]}
+  montazh:     {title: "Агент монтажа",           roles: [alex, sultan]}
+  rukovoditel: {title: "Агент руководителя",      roles: [zhenya]}
+
+# Флаги сделки: поля-галочки на сделке в CRM.
+flags:
+  needCustomerAdvance: "Нужен аванс от заказчика"
+  customerAdvancePaid: "Аванс заказчика оплачен"
+  needFactoryAdvance:  "Завод требует аванс"
+  biGroup:             "Заказчик BI Group (стандарты)"
+  techDoors:           "Технические двери"
+  moneyReady:          "Объект: готовы платить, деньги есть"
+  hasDefect:           "Брак или недостача при разгрузке"
+
+# Текстовые поля сделки, которые заполняют люди и бот.
+fields:
+  objectAddress: "Адрес объекта (2ГИС)"
+  siteChief:     "Начальник участка, телефон"
+  factory:       "Завод"
+  doorsCount:    "Дверей, шт."
+  readyDate:     "Готовность (план)"
+  borderDate:    "Граница (план)"
+  paymentDue:    "Оплата до"
+
+# Уведомления (страница «🔔 Уведомления» из чата): напоминание исполнителю за `remind_days` до срока и в день срока;
+# задача просрочена на `after_days` и больше — эскалация роли `to`. Сделка стоит на шлюзе — тоже эскалация.
+escalation: {to: zhenya, after_days: 1, remind_days: 1}
+
+# Поля сделки, которые заполняет только бот (мост): видно в CRM и на карточке канбана.
+bot_fields:
+  nowOn:         "Сейчас на ком"
+  nextStep:      "Дальше"
+  processStatus: "Статус процесса"
+
+# Фазы для трекера (полоса из 7 фаз, как в прототипе): какие этапы воронки входят в фазу.
+phases:
+  - {name: "Договор",  stages: [DOGOVOR, SVERKA]}
+  - {name: "Запуск",   stages: [PODPIS, AVANS_ZAVOD]}
+  - {name: "Завод",    stages: [IZGOTOVLENIE]}
+  - {name: "Отгрузка", stages: [PODGOTOVKA, POGRUZKA]}
+  - {name: "В пути",   stages: [V_PUTI, GRANICA]}
+  - {name: "Приёмка",  stages: [RAZGRUZKA]}
+  - {name: "Закрытие", stages: [NAKLADNYE, OZHIDAET_OPLATU, OPLACHENO]}
+
+stages:
+  - key: DOGOVOR
+    label: "Договор с заказчиком"
+    next: SVERKA
+    waves:
+      - - {role: manager, card: "1", task: "Прикрепить договор (и допик) и подписанную спецификацию заказчика. Заполнить адрес объекта со ссылкой 2ГИС и телефон начальника участка. Подписать спецификацию.", rules: ["Без подписанного договора и спецификации сделка в «Сверку» не идёт"]}
+        - {role: manager, card: "1б", when: needCustomerAdvance, task: "Выставить счёт на аванс по договору, отправить снабженцу, вписать срок оплаты.", rules: ["Сверка аванс не ждёт: аванс держит только переход в «Подпись и запуск»"]}
+
+  - key: SVERKA
+    label: "Сверка"
+    next: PODPIS
+    gate: {flag: customerAdvancePaid, when: needCustomerAdvance, message: "По договору нужен аванс, а отметки «Аванс оплачен» нет"}
+    waves:
+      - - {role: yulia, card: "1", due_days: 3, task: "Вписать срок производства от завода. Сверить спецификацию и счёт завода с подписанной спецификацией заказчика. Прикрепить итоговые сверенные спецификации.", rules: ["Вопросы по расхождениям — с менеджером", "Технические двери: прописать цвет доводчика", "BI Group: сверить со стандартами BI (размер, стекло, решётка, цвет, противопожарность)"], opts: sverka}
+        - {role: buh, card: "1б", when: needCustomerAdvance, blocking: false, task: "Найти оплату аванса в выписке, прикрепить платёжку, поставить отметку «Аванс оплачен».", rules: ["Менеджеру напрямую не пишет: только в сделке"], opts: advance_pay}
+
+  - key: PODPIS
+    label: "Подпись и запуск"
+    next: AVANS_ZAVOD
+    waves:
+      - - {role: yulia, card: "1", task: "Подписать сверенные спецификации заказчика и завода (первая подпись)."}
+      - - {role: zhenya, card: "1", due_days: 1, task: "Подписать спецификации заказчика и завода (вторая подпись)."}
+      - - {role: yulia, card: "1", task: "Отправить заводу письмо «Готов к запуску». После подтверждения завода — статус «На изготовлении».", rules: ["Если завод требует аванс — поставить флаг «Завод требует аванс»"], opts: launch}
+
+  - key: AVANS_ZAVOD
+    label: "Аванс заводу"
+    when: needFactoryAdvance
+    next: IZGOTOVLENIE
+    waves:
+      - - {role: yulia, card: "1а", task: "Прикрепить счёт завода, срок оплаты — дата счёта + 5 дней. Поставить счёт в реестр платежей через чат по платежам.", rules: ["Любой счёт — только через чат по платежам", "На 3-й день без оплаты — эскалация Опердиру"]}
+      - - {role: madina, card: "1а", due_days: 1, task: "Утвердить реестр и согласовать оплату аванса заводу.", opts: fadv_approve}
+      - - {role: anara, card: "1а", task: "Провести платёж, прикрепить платёжку в сделку."}
+      - - {role: yulia, card: "1а", task: "Отправить платёжку заводу письмом, получить подтверждение и срок изготовления, вписать срок в сделку."}
+
+  - key: IZGOTOVLENIE
+    label: "На изготовлении"
+    next: PODGOTOVKA
+    waves:
+      - - {role: yulia, card: "2", task: "Каждую среду — статус завода по заказу в сделку. За 10 дней до срока запросить официальное письмо: дата готовности и состав машин. Вписать подтверждённую дату готовности.", rules: ["Дата готовности — только по официальному письму завода", "2 недели без движения — эскалация Опердиру"], opts: factory_status}
+        - {role: manager, card: "2.1", blocking: false, task: "Подготовить договор на монтаж по шаблону (предоплата 30%, условия закачки). Отклонения от шаблона — на согласование юристу, финдиру и опердиру.", opts: mont_contract}
+        - {role: alex, card: "2.1", blocking: false, task: "Подобрать бригаду, подготовить спецификацию к рамочному договору СМР. До приезда фуры — акт готовности объекта и ГПР монтажа.", opts: site_ready}
+        - {role: sultan, card: "2.1", blocking: false, due_days: 10, task: "Сопоставить спецификацию завода с проектом заказчика, раскладка по проёмам — в сделку.", rules: ["Проект не совпадает со спецификацией — сообщить менеджеру до отгрузки"], opts: layout}
+
+  - key: PODGOTOVKA
+    label: "Подготовка к отгрузке"
+    next: POGRUZKA
+    waves:
+      - - {role: manager, card: "2.2", due_days: 1, task: "Письменно уточнить у объекта: есть ли мы в плане оплат, готов ли объект к дате, место разгрузки и проезд. Ответ и скрин — в сделку.", rules: ["Без «Готовы платить, деньги есть» заявка на логистику не подаётся", "Денег нет — решение Опердира"], opts: money}
+      - - {role: yulia, card: "3", due_days: 1, task: "Заполнить заявку на логистику: завод и адрес погрузки, дата готовности, объём, сколько машин, адрес объекта, начальник участка, номер заказа и счёта.", rules: ["Только по официальному письму завода и после «Готовы платить»"]}
+      - - {role: ruslan, card: "3", due_days: 7, task: "Найти машину на дату готовности. Подгрузить комплект: перевозчик и реквизиты, техпаспорт, водитель, направление, стоимость фуры, дата подачи.", rules: ["Неполный комплект бухгалтер не принимает", "Не нашёл в срок — эскалация Опердиру"], opts: truck}
+      - - {role: sveta, card: "4", task: "Проверить перевозчика (благонадёжность, НДС). Договор в УчётЭДО на подпись. Доверенность на водителя в 1С с номерами счетов.", opts: carrier}
+      - - {role: yulia, card: "4", task: "Отправить заводу доверенность и данные водителя, прикрепить подтверждение завода.", opts: factory_ack}
+
+  - key: POGRUZKA
+    label: "Погрузка"
+    next: V_PUTI
+    waves:
+      - - {role: yulia, card: "5", task: "За день до погрузки — письмо заводу с порядком погрузки по точкам разгрузки."}
+        - {role: ruslan, card: "5", task: "Договориться с водителем: на заводе к 8:00. Опоздание — причина и новое время в сделку.", opts: driver}
+      - - {role: yulia, card: "5", task: "Проверить сканы: накладная, счёт-фактура или УПД, ТТН или CMR, ведомость. Сверить накладную со спецификацией.", rules: ["В ведомости фрамуги и наличники: левые и правые", "Ошибка в накладной — письмо заводу сразу, до СНТ"], opts: scans}
+      - - {role: anara, card: "5", blocking: false, due_days: 1, task: "Перепроверить комплект документов и ведомость.", opts: recheck}
+
+  - key: V_PUTI
+    label: "В пути"
+    next: GRANICA
+    waves:
+      - - {role: yulia, card: "6", task: "Сообщение о выезде в группу «ПОСТАВКИ» по шаблону: ЖК, откуда и когда, номер заказа и счёта, количество, порядок погрузки, машина и водитель."}
+        - {role: manager, card: "6.1", task: "Счёт на оплату по накладной завода, запрос доверенности у снабженца в день выезда. Проверить доверенность: сумма, юрлицо, срок, подпись и печать.", rules: ["Напоминать каждый день, со 2-го дня — начальник участка", "За день до границы нет доверенности — эскалация Опердиру"], opts: poa}
+        - {role: anara, card: "7", due_days: 1, task: "Проверить позиции в Нацкаталоге, выставить СНТ, номер СНТ в сделку.", rules: ["СНТ не выставлена к очереди — эскалация Опердиру"], opts: snt}
+        - {role: ruslan, card: "8", task: "Получить скрин электронной очереди, вписать дату прохода. В день прохода подтвердить у водителя.", opts: queue}
+        - {role: erkanat, card: "10", blocking: false, task: "Чек-лист с начальником участка: дата, место, поддоны, техника, проезд. Договориться с грузчиками о дате и цене.", rules: ["Цену грузчиков фиксируем заранее"], opts: site_check}
+
+  - key: GRANICA
+    label: "Граница пройдена"
+    next: RAZGRUZKA
+    waves:
+      - - {role: manager, card: "9", task: "Создать заказ в 1С, номер заказа — в сделку."}
+        - {role: erkanat, card: "10", task: "За день до приезда: время у водителя, подтверждение объекта и грузчиков, ссылка 2ГИС водителю. «Приёмка готова».", rules: ["Место или проезд не готовы — сообщить менеджеру и опердиру до выезда грузчиков"], opts: loaders}
+      - - {role: buh, card: "9", due_days: 1, task: "Сделать накладные (реализацию) по заказу и доверенности, прикрепить в сделку.", rules: ["Накладных нет к разгрузке — товар везут на склад"]}
+
+  - key: RAZGRUZKA
+    label: "Разгрузка"
+    next: NAKLADNYE
+    waves:
+      - - {role: erkanat, card: "11", task: "Забрать оригиналы у водителя, инструктаж грузчикам, подсчёт дверей и погонажа против накладной, акт приёма-передачи, видео хранения.", rules: ["Акт подписываем в день разгрузки", "Брак или недостача — фото и видео с этикеткой, флаг «Брак»"], opts: unload}
+      - - {role: yulia, card: "11а", when: hasDefect, task: "Оформить рекламацию заводу: позиции, количество, фото, номер накладной, акт. Решение завода — в реестр рекламаций.", rules: ["Брак меняет количество — накладные корректируются до подписи", "Завод молчит 5 дней — повторное письмо и эскалация Опердиру"], opts: claim}
+
+  - key: NAKLADNYE
+    label: "Подпись накладных"
+    next: OZHIDAET_OPLATU
+    waves:
+      - - {role: manager, card: "12", due_days: 2, task: "Подписать накладные у заказчика с доверенностью, фото в сделку, оригиналы — в бухгалтерию.", rules: ["Только после акта приёма-передачи"]}
+      - - {role: buh, card: "12", task: "Отметить получение оригиналов накладных."}
+
+  - key: OZHIDAET_OPLATU
+    label: "Ожидает оплату"
+    next: OPLACHENO
+    waves:
+      - - {role: manager, card: "13", task: "Отправить требование оплаты: сумма, срок по договору, реквизиты. Вписать дату «Оплата до».", rules: ["Напоминание за 5 дней до срока", "После срока — письмо и решение Опердира по монтажу"]}
+      - - {role: buh, card: "13", task: "Найти оплату в выписке и отметить её в сделке.", opts: payment}
+
+  - key: OPLACHENO
+    label: "Оплачено"
+    waves: []
+
+  - key: OTLOZHENA
+    label: "Отложена"
+    service: true
+    waves: []
+
+  - key: OTMENENA
+    label: "Отменена"
+    service: true
+    waves: []
+
+# ---------------------------------------------------------------------------
+# Варианты ответа на задачу: кнопки в чате вместо одной «Подтвердить». Шаг ссылается на набор так: `opts: <имя>`.
+# Шаг без `opts` закрывается одной кнопкой «Подтвердить».
+#   label  — текст кнопки;
+#   set    — какие флаги поставить в сделке (галочки в CRM бот ставит по выбору человека);
+#   reason — бот попросит причину одним сообщением, она уйдёт в задачу следующего;
+#   then   — проблемная ветка: какую задачу открыть (из `branches`); она держит переход, пока её не закроют;
+#   stage  — перевести сделку в служебный этап (Отложена / Отменена) по решению человека.
+option_sets:
+  advance_pay:
+    - {label: "Аванс оплачен", set: {customerAdvancePaid: true}}
+    - {label: "Оплаты нет в выписке", reason: true, then: advance_remind}
+  advance_remind:
+    - {label: "Заказчик оплатил — проверить выписку", then: advance_check}
+    - {label: "Снова не оплатил", reason: true, then: advance_decide}
+  advance_decide:
+    - {label: "Ждём, Данил звонит", then: advance_remind}
+    - {label: "Перевести в «Отложена»", reason: true, stage: OTLOZHENA}
+    - {label: "Отменить сделку", reason: true, stage: OTMENENA}
+  sverka:
+    - {label: "Сверка без расхождений"}
+    - {label: "Есть расхождения — запросить исправление у завода", reason: true, then: sverka_fix}
+  launch:
+    - {label: "Завод подтвердил, аванс не нужен"}
+    - {label: "Завод требует аванс", set: {needFactoryAdvance: true}}
+  fadv_approve:
+    - {label: "Утвердить"}
+    - {label: "Не сегодня — перенести", reason: true, then: fadv_retry}
+  fadv_retry:
+    - {label: "Утвердить"}
+    - {label: "Снова перенести", reason: true, then: fadv_decide}
+  fadv_decide:
+    - {label: "Согласовать оплату сегодня"}
+    - {label: "Перевести в «Отложена»", reason: true, stage: OTLOZHENA}
+  factory_status:
+    - {label: "Идёт по сроку, дата готовности вписана"}
+    - {label: "Срок сдвигается", reason: true, then: factory_shift}
+    - {label: "Завод не отвечает", reason: true, then: factory_silent}
+  decided:
+    - {label: "Решено"}
+  mont_contract:
+    - {label: "По шаблону — отправлено заказчику"}
+    - {label: "Есть отклонения — на согласование", reason: true, then: mont_approve}
+  mont_approve:
+    - {label: "Согласовано"}
+    - {label: "Не согласовано — вернуть менеджеру", reason: true, then: mont_rework}
+  site_ready:
+    - {label: "Объект готов — акт подписан"}
+    - {label: "Готовности нет", reason: true, then: site_not_ready}
+  layout:
+    - {label: "Проект совпадает со спецификацией"}
+    - {label: "Проект не совпадает", reason: true, then: layout_mismatch}
+  money:
+    - {label: "Да, деньги есть", set: {moneyReady: true}}
+    - {label: "Будут позже", reason: true, then: money_recheck}
+    - {label: "Денег нет", reason: true, then: money_decide}
+  money_decide:
+    - {label: "Везём", set: {moneyReady: true}}
+    - {label: "Везём под гарантийное письмо", then: money_guarantee}
+    - {label: "Ждём — в «Отложена»", reason: true, stage: OTLOZHENA}
+  truck:
+    - {label: "Машина найдена, комплект в сделке"}
+    - {label: "Машины пока нет", reason: true, then: truck_decide}
+  carrier:
+    - {label: "Перевозчик проверен, договор подписан"}
+    - {label: "Перевозчик не подписал договор", reason: true, then: carrier_push}
+  factory_ack:
+    - {label: "Завод подтвердил"}
+    - {label: "Завод не ответил", reason: true, then: factory_ack_retry}
+  driver:
+    - {label: "Водитель подтвердил: к 8:00"}
+    - {label: "Водитель опаздывает или не отвечает", reason: true, then: driver_late}
+  scans:
+    - {label: "Полный комплект, накладная совпадает"}
+    - {label: "Ошибка в накладной", reason: true, then: invoice_fix}
+    - {label: "Не хватает документов", reason: true, then: docs_missing}
+  recheck:
+    - {label: "Комплект в порядке"}
+    - {label: "Есть замечания — Юлии", reason: true, then: recheck_fix}
+  poa:
+    - {label: "Доверенность получена и проверена"}
+    - {label: "Прислал с ошибкой", reason: true, then: poa_fix}
+    - {label: "Не прислал", reason: true, then: poa_remind}
+  poa_remind:
+    - {label: "Прислал доверенность"}
+    - {label: "Снова не прислал", reason: true, then: poa_decide}
+  snt:
+    - {label: "Все позиции есть, СНТ выставлена"}
+    - {label: "Позиции нет в Нацкаталоге", reason: true, then: snt_fix}
+  queue:
+    - {label: "Дата прохода вписана"}
+    - {label: "Скрина очереди нет", reason: true, then: queue_retry}
+  site_check:
+    - {label: "Всё готово"}
+    - {label: "Проезд закрыт или место не готово", reason: true, then: site_decide}
+  site_decide:
+    - {label: "Перенести разгрузку на день"}
+    - {label: "Везём на склад ENTRYX"}
+  loaders:
+    - {label: "Приёмка готова"}
+    - {label: "Грузчики просят дороже", reason: true, then: loaders_price}
+  loaders_price:
+    - {label: "Согласовано"}
+    - {label: "Найти других по старой цене", then: loaders_find}
+  unload:
+    - {label: "Разгружено, брака нет"}
+    - {label: "Есть брак или недостача", reason: true, set: {hasDefect: true}}
+  claim:
+    - {label: "Замена за счёт завода"}
+    - {label: "Скидка на следующий заказ"}
+    - {label: "Завод отказал", reason: true}
+    - {label: "Завод молчит 5 дней", reason: true, then: claim_escalate}
+  payment:
+    - {label: "Оплата пришла"}
+    - {label: "Не оплатил в срок", reason: true, then: payment_decide}
+  payment_decide:
+    - {label: "Остановить монтаж до оплаты", then: payment_wait}
+    - {label: "Не останавливать", then: payment_wait}
+
+# Проблемные ветки: задачи, которые открывает вариант ответа (`then`). Причина из прошлого ответа попадает в текст задачи.
+# Задача ветки встаёт в текущий шаг сделки и держит переход (если не `blocking: false`).
+branches:
+  advance_remind: {role: manager, card: "1б", due_days: 1, opts: advance_remind, task: "Аванс не оплачен в срок. Напомнить заказчику об авансе (почта или WhatsApp) и внести его ответ."}
+  advance_check:  {role: buh, card: "1б", due_days: 1, opts: advance_pay, task: "Заказчик говорит, что оплатил аванс. Найти оплату в выписке и поставить отметку."}
+  advance_decide: {role: zhenya, card: "1б", due_days: 1, opts: advance_decide, task: "Заказчик не оплатил аванс после напоминаний. Решить: ждём или переводим сделку в «Отложена»."}
+  sverka_fix:     {role: yulia, card: "1", due_days: 2, opts: sverka, task: "Расхождения в спецификации завода. Запросить у завода исправленный счёт и спецификацию, сверить заново."}
+  fadv_retry:     {role: madina, card: "1а", due_days: 1, opts: fadv_retry, task: "Счёт на аванс заводу второй день в реестре. Утвердить, иначе на 3-й день — эскалация Опердиру."}
+  fadv_decide:    {role: zhenya, card: "1а", due_days: 1, opts: fadv_decide, task: "Аванс заводу не утверждён дважды, запуск производства под угрозой. Решить."}
+  factory_shift:  {role: yulia, card: "2", due_days: 2, opts: decided, task: "Завод сдвигает срок. Получить официальное письмо с новой датой, вписать её в сделку, сообщить менеджеру."}
+  factory_silent: {role: zhenya, card: "2", due_days: 1, opts: decided, task: "Завод не отвечает по статусу заказа. Решить, кто и как выходит на завод."}
+  mont_approve:   {role: zhenya, card: "2.1", blocking: false, due_days: 2, opts: mont_approve, task: "Договор на монтаж отходит от шаблона. Согласовать с юристом и финдиром."}
+  mont_rework:    {role: manager, card: "2.1", blocking: false, due_days: 2, opts: mont_contract, task: "Отклонения в договоре на монтаж не согласованы. Переделать договор."}
+  site_not_ready: {role: zhenya, card: "2.1", blocking: false, due_days: 1, opts: decided, task: "Объект не готов к монтажу. Решить по срокам монтажа."}
+  layout_mismatch: {role: manager, card: "2.1", blocking: false, due_days: 3, opts: decided, task: "Проект заказчика не совпадает со спецификацией завода. Решить с заказчиком до отгрузки."}
+  money_recheck:  {role: manager, card: "2.2", due_days: 2, opts: money, task: "Объект обещал деньги позже. Повторить проверку оплаты через 2 дня."}
+  money_decide:   {role: zhenya, card: "2.2", due_days: 1, opts: money_decide, task: "У объекта нет денег на оплату. Решить: везём, везём под гарантийное письмо или ждём."}
+  money_guarantee: {role: manager, card: "2.2", due_days: 2, opts: money, task: "Получить гарантийное письмо заказчика (сумма, срок оплаты, подпись и печать) и прикрепить в сделку."}
+  truck_decide:   {role: zhenya, card: "3", due_days: 1, opts: decided, task: "Логист не нашёл машину к сроку. Решить: другая цена, другой перевозчик или сдвиг даты."}
+  carrier_push:   {role: ruslan, card: "4", due_days: 1, opts: decided, task: "Перевозчик не подписал договор в УчётЭДО. Дожать подпись или найти другого перевозчика."}
+  factory_ack_retry: {role: yulia, card: "4", due_days: 1, opts: factory_ack, task: "Завод не подтвердил доверенность. Позвонить и повторить письмо."}
+  driver_late:    {role: yulia, card: "5", due_days: 1, opts: decided, task: "Водитель опаздывает. Спросить завод, загрузят ли сегодня, и вписать новое время."}
+  invoice_fix:    {role: yulia, card: "5", due_days: 1, opts: scans, task: "Ошибка в накладной завода. Письмо заводу сразу, до СНТ; получить исправленную накладную."}
+  docs_missing:   {role: yulia, card: "5", due_days: 1, opts: scans, task: "Завод прислал неполный комплект. Запросить недостающие документы (счёт-фактура, ведомость)."}
+  recheck_fix:    {role: yulia, card: "5", blocking: false, due_days: 1, opts: decided, task: "У Анары замечания к документам завода. Исправить с заводом."}
+  poa_fix:        {role: manager, card: "6.1", due_days: 1, opts: poa, task: "Доверенность с ошибкой. Запросить у снабженца исправленную."}
+  poa_remind:     {role: manager, card: "6.1", due_days: 1, opts: poa_remind, task: "Доверенности нет. Напомнить снабженцу (со 2-го дня — начальнику участка)."}
+  poa_decide:     {role: zhenya, card: "6.1", due_days: 1, opts: decided, task: "Доверенности нет, машина близко к границе. Решить."}
+  snt_fix:        {role: anara, card: "7", due_days: 1, opts: snt, task: "Позиции нет в Нацкаталоге. Добавить позицию, затем выставить СНТ."}
+  queue_retry:    {role: ruslan, card: "8", due_days: 1, opts: queue, task: "Скрина очереди нет. Получить его у водителя и вписать дату прохода."}
+  site_decide:    {role: zhenya, card: "10", blocking: false, due_days: 1, opts: site_decide, task: "На объекте не готово место или проезд. Решить: переносим разгрузку или везём на склад."}
+  loaders_price:  {role: zhenya, card: "10", due_days: 1, opts: loaders_price, task: "Грузчики подняли цену. Правило: цену фиксируем заранее. Согласовать или искать других."}
+  loaders_find:   {role: erkanat, card: "10", due_days: 1, opts: loaders, task: "Найти других грузчиков по согласованной цене."}
+  claim_escalate: {role: zhenya, card: "11а", due_days: 1, opts: decided, task: "Завод 5 дней молчит по рекламации. Повторное письмо ушло, нужно решение Опердира."}
+  payment_decide: {role: zhenya, card: "13", due_days: 1, opts: payment_decide, task: "Заказчик не оплатил поставку в срок. Решить по монтажу."}
+  payment_wait:   {role: buh, card: "13", due_days: 3, opts: payment, task: "Ждём оплату после просрочки. Найти оплату в выписке и отметить её."}

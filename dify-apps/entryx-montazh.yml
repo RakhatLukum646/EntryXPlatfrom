@@ -1,0 +1,1161 @@
+app:
+  description: 'Агент монтажа: флоу по этапам сделки для моста и чат для сотрудника. Сгенерировано из process/stages.yaml.'
+  icon: 🚪
+  icon_background: '#E6EBFB'
+  icon_type: emoji
+  mode: advanced-chat
+  name: entryx-montazh
+  use_icon_as_answer_icon: false
+dependencies: []
+kind: app
+version: 0.6.0
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      enabled: false
+    opening_statement: 'Здравствуйте, Александр. Я агент монтажа. Вижу ваши сделки и задачи в CRM. Нажмите «Что на мне сегодня»: у каждого дела кнопки ответа, и карточка уйдёт следующему. Или спросите что угодно: что горит, черновик письма, проверка документа; под ответом будут ваши дела с кнопками.
+
+
+      <button data-variant="primary" data-message="Сегодня">Что на мне сегодня</button> <button data-message="Мои проекты">Мои проекты</button>
+
+
+      [🔔 Уведомления](http://localhost:8787/app?agent=montazh#inbox)'
+    retriever_resource:
+      enabled: false
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions:
+    - Что горит у меня (Александр)?
+    - Как проверить документ на шаге 2.1?
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+      language: ''
+      voice: ''
+  graph:
+    edges:
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: start
+        targetType: http-request
+      id: start-source-crm-target
+      source: start
+      sourceHandle: source
+      target: crm
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: http-request
+        targetType: if-else
+      id: crm-source-mode-target
+      source: crm
+      sourceHandle: source
+      target: mode
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: if-else
+        targetType: if-else
+      id: mode-bridge-stage_switch-target
+      source: mode
+      sourceHandle: bridge
+      target: stage_switch
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: if-else
+        targetType: http-request
+      id: mode-buttons-buttons-target
+      source: mode
+      sourceHandle: buttons
+      target: buttons
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: http-request
+        targetType: answer
+      id: buttons-source-ans_buttons-target
+      source: buttons
+      sourceHandle: source
+      target: ans_buttons
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: if-else
+        targetType: http-request
+      id: mode-false-actions-target
+      source: mode
+      sourceHandle: 'false'
+      target: actions
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: http-request
+        targetType: question-classifier
+      id: actions-source-intent-target
+      source: actions
+      sourceHandle: source
+      target: intent
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: if-else
+        targetType: llm
+      id: stage_switch-izgotovlenie-llm_izgotovlenie-target
+      source: stage_switch
+      sourceHandle: izgotovlenie
+      target: llm_izgotovlenie
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: llm
+        targetType: answer
+      id: llm_izgotovlenie-source-ans_llm_izgotovlenie-target
+      source: llm_izgotovlenie
+      sourceHandle: source
+      target: ans_llm_izgotovlenie
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: if-else
+        targetType: llm
+      id: stage_switch-false-llm_tasks_other-target
+      source: stage_switch
+      sourceHandle: 'false'
+      target: llm_tasks_other
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: llm
+        targetType: answer
+      id: llm_tasks_other-source-ans_llm_tasks_other-target
+      source: llm_tasks_other
+      sourceHandle: source
+      target: ans_llm_tasks_other
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: question-classifier
+        targetType: llm
+      id: intent-status-llm_chat_status-target
+      source: intent
+      sourceHandle: status
+      target: llm_chat_status
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: llm
+        targetType: answer
+      id: llm_chat_status-source-ans_llm_chat_status-target
+      source: llm_chat_status
+      sourceHandle: source
+      target: ans_llm_chat_status
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: question-classifier
+        targetType: llm
+      id: intent-letter-llm_chat_letter-target
+      source: intent
+      sourceHandle: letter
+      target: llm_chat_letter
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: llm
+        targetType: answer
+      id: llm_chat_letter-source-ans_llm_chat_letter-target
+      source: llm_chat_letter
+      sourceHandle: source
+      target: ans_llm_chat_letter
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: question-classifier
+        targetType: llm
+      id: intent-doc-llm_chat_doc-target
+      source: intent
+      sourceHandle: doc
+      target: llm_chat_doc
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: llm
+        targetType: answer
+      id: llm_chat_doc-source-ans_llm_chat_doc-target
+      source: llm_chat_doc
+      sourceHandle: source
+      target: ans_llm_chat_doc
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: question-classifier
+        targetType: llm
+      id: intent-process-llm_chat_process-target
+      source: intent
+      sourceHandle: process
+      target: llm_chat_process
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: llm
+        targetType: answer
+      id: llm_chat_process-source-ans_llm_chat_process-target
+      source: llm_chat_process
+      sourceHandle: source
+      target: ans_llm_chat_process
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    nodes:
+    - data:
+        desc: ''
+        selected: false
+        title: Start
+        type: start
+        variables:
+        - label: Роль (заполняет мост)
+          max_length: 256
+          options: []
+          required: false
+          hide: true
+          type: text-input
+          variable: role
+        - label: Этап (заполняет мост)
+          max_length: 256
+          options: []
+          required: false
+          hide: true
+          type: text-input
+          variable: stage
+        - label: Код этапа (заполняет мост)
+          max_length: 256
+          options: []
+          required: false
+          hide: true
+          type: text-input
+          variable: stage_key
+        - label: Сделка JSON (заполняет мост)
+          max_length: 20000
+          options: []
+          required: false
+          hide: true
+          type: paragraph
+          variable: deal
+        - label: Шаги JSON (заполняет мост)
+          max_length: 20000
+          options: []
+          required: false
+          hide: true
+          type: paragraph
+          variable: steps
+      height: 90
+      id: start
+      position:
+        x: 30
+        y: 300
+      positionAbsolute:
+        x: 30
+        y: 300
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        desc: Живые сделки и задачи роли из Twenty через мост
+        selected: false
+        title: Данные CRM
+        type: http-request
+        method: get
+        url: http://host.docker.internal:8787/context?agent=montazh
+        authorization:
+          type: no-auth
+          config: null
+        headers: ''
+        params: ''
+        body:
+          type: none
+          data: []
+        timeout:
+          connect: 5
+          read: 15
+          write: 15
+        retry_config:
+          enabled: false
+          max_retries: 1
+          retry_interval: 1000
+        error_strategy: default-value
+        default_value:
+        - key: body
+          type: string
+          value: 'CRM недоступна: живых данных нет. Скажи об этом и отвечай по процессу.'
+        - key: status_code
+          type: number
+          value: 0
+        - key: headers
+          type: object
+          value: {}
+        variables: []
+      height: 90
+      id: crm
+      position:
+        x: 330
+        y: 300
+      positionAbsolute:
+        x: 330
+        y: 300
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        desc: ''
+        selected: false
+        title: 'Режим: мост, кнопка или чат'
+        type: if-else
+        cases:
+        - case_id: bridge
+          id: bridge
+          logical_operator: and
+          conditions:
+          - comparison_operator: start with
+            id: c_bridge
+            value: 'РЕЖИМ: ЗАДАЧИ'
+            varType: string
+            variable_selector:
+            - sys
+            - query
+        - case_id: buttons
+          id: buttons
+          logical_operator: or
+          conditions:
+          - comparison_operator: is
+            id: c_today
+            value: Сегодня
+            varType: string
+            variable_selector:
+            - sys
+            - query
+          - comparison_operator: start with
+            id: c_today2
+            value: Что на мне сегодня
+            varType: string
+            variable_selector:
+            - sys
+            - query
+          - comparison_operator: is
+            id: c_projects
+            value: Мои проекты
+            varType: string
+            variable_selector:
+            - sys
+            - query
+          - comparison_operator: start with
+            id: c_confirm
+            value: 'Подтвердить:'
+            varType: string
+            variable_selector:
+            - sys
+            - query
+          - comparison_operator: start with
+            id: c_option
+            value: 'Вариант:'
+            varType: string
+            variable_selector:
+            - sys
+            - query
+          - comparison_operator: start with
+            id: c_draft
+            value: 'Черновик:'
+            varType: string
+            variable_selector:
+            - sys
+            - query
+          - comparison_operator: start with
+            id: c_pending
+            value: ОЖИДАЮ ПРИЧИНУ
+            varType: string
+            variable_selector:
+            - crm
+            - body
+          - comparison_operator: contains
+            id: c_word0
+            value: подтвержда
+            varType: string
+            variable_selector:
+            - sys
+            - query
+          - comparison_operator: contains
+            id: c_word1
+            value: Подтвержда
+            varType: string
+            variable_selector:
+            - sys
+            - query
+          - comparison_operator: contains
+            id: c_word2
+            value: готово
+            varType: string
+            variable_selector:
+            - sys
+            - query
+          - comparison_operator: contains
+            id: c_word3
+            value: Готово
+            varType: string
+            variable_selector:
+            - sys
+            - query
+          - comparison_operator: contains
+            id: c_word4
+            value: сделал
+            varType: string
+            variable_selector:
+            - sys
+            - query
+          - comparison_operator: contains
+            id: c_word5
+            value: Сделал
+            varType: string
+            variable_selector:
+            - sys
+            - query
+          - comparison_operator: contains
+            id: c_word6
+            value: выполнил
+            varType: string
+            variable_selector:
+            - sys
+            - query
+          - comparison_operator: contains
+            id: c_word7
+            value: Выполнил
+            varType: string
+            variable_selector:
+            - sys
+            - query
+          - comparison_operator: contains
+            id: c_word8
+            value: закрой
+            varType: string
+            variable_selector:
+            - sys
+            - query
+          - comparison_operator: contains
+            id: c_word9
+            value: Закрой
+            varType: string
+            variable_selector:
+            - sys
+            - query
+          - comparison_operator: contains
+            id: c_word10
+            value: перевед
+            varType: string
+            variable_selector:
+            - sys
+            - query
+          - comparison_operator: contains
+            id: c_word11
+            value: Перевед
+            varType: string
+            variable_selector:
+            - sys
+            - query
+          - comparison_operator: contains
+            id: c_word12
+            value: переведи
+            varType: string
+            variable_selector:
+            - sys
+            - query
+          - comparison_operator: contains
+            id: c_word13
+            value: Переведи
+            varType: string
+            variable_selector:
+            - sys
+            - query
+          - comparison_operator: contains
+            id: c_word14
+            value: перекин
+            varType: string
+            variable_selector:
+            - sys
+            - query
+          - comparison_operator: contains
+            id: c_word15
+            value: Перекин
+            varType: string
+            variable_selector:
+            - sys
+            - query
+      height: 90
+      id: mode
+      position:
+        x: 630
+        y: 300
+      positionAbsolute:
+        x: 630
+        y: 300
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        desc: ''
+        selected: false
+        title: 'Кнопки: Сегодня / Подтвердить / Черновик / Проекты'
+        type: http-request
+        method: get
+        url: http://host.docker.internal:8787/chat
+        authorization:
+          type: no-auth
+          config: null
+        headers: ''
+        params: 'agent:montazh
+
+          q:{{#sys.query#}}'
+        body:
+          type: none
+          data: []
+        timeout:
+          connect: 5
+          read: 20
+          write: 20
+        retry_config:
+          enabled: false
+          max_retries: 1
+          retry_interval: 1000
+        error_strategy: default-value
+        default_value:
+        - key: body
+          type: string
+          value: Мост Entryx недоступен, список дел сейчас не показать. Проверьте, что контейнер entryx-bridge запущен.
+        - key: status_code
+          type: number
+          value: 0
+        - key: headers
+          type: object
+          value: {}
+        variables: []
+      height: 90
+      id: buttons
+      position:
+        x: 930
+        y: -120
+      positionAbsolute:
+        x: 930
+        y: -120
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        desc: ''
+        selected: false
+        answer: '{{#buttons.body#}}'
+        title: Ответ · кнопки
+        type: answer
+        variables: []
+      height: 90
+      id: ans_buttons
+      position:
+        x: 1230
+        y: -120
+      positionAbsolute:
+        x: 1230
+        y: -120
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        desc: ''
+        selected: false
+        title: Дела с кнопками (мост)
+        type: http-request
+        method: get
+        url: http://host.docker.internal:8787/chat
+        authorization:
+          type: no-auth
+          config: null
+        headers: ''
+        params: 'agent:montazh
+
+          q:__actions__'
+        body:
+          type: none
+          data: []
+        timeout:
+          connect: 5
+          read: 15
+          write: 15
+        retry_config:
+          enabled: false
+          max_retries: 1
+          retry_interval: 1000
+        error_strategy: default-value
+        default_value:
+        - key: body
+          type: string
+          value: '<button data-variant="primary" data-message="Сегодня">Что на мне сегодня</button> <button data-message="Мои проекты">Мои проекты</button>
+
+
+            [🔔 Уведомления](http://localhost:8787/app?agent=montazh#inbox)'
+        - key: status_code
+          type: number
+          value: 0
+        - key: headers
+          type: object
+          value: {}
+        variables: []
+      height: 90
+      id: actions
+      position:
+        x: 780
+        y: 675
+      positionAbsolute:
+        x: 780
+        y: 675
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        desc: ''
+        selected: false
+        title: Этап сделки
+        type: if-else
+        cases:
+        - case_id: izgotovlenie
+          id: izgotovlenie
+          logical_operator: and
+          conditions:
+          - comparison_operator: is
+            id: c_izgotovlenie
+            value: IZGOTOVLENIE
+            varType: string
+            variable_selector:
+            - start
+            - stage_key
+      height: 90
+      id: stage_switch
+      position:
+        x: 930
+        y: 125
+      positionAbsolute:
+        x: 930
+        y: 125
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        desc: ''
+        selected: false
+        title: Тип вопроса
+        type: question-classifier
+        query_variable_selector:
+        - sys
+        - query
+        model:
+          completion_params:
+            temperature: 0.2
+            thinking_level: Low
+          mode: chat
+          name: gemini-flash-latest
+          provider: langgenius/gemini/google
+        classes:
+        - id: status
+          name: 'Статус и приоритеты: что на мне, какие задачи, что горит или просрочено, где сделка, какие сроки'
+        - id: letter
+          name: Подготовить письмо, сообщение, напоминание или ответ заводу, заказчику, водителю, перевозчику, начальнику участка, грузчикам
+        - id: doc
+          name: 'Проверить документ или комплект: спецификацию, счёт, накладную, доверенность, акт, сканы; что должно быть в документе'
+        - id: process
+          name: 'Вопрос по процессу: как сделать шаг, какие правила, чей шаг, что будет дальше, другие вопросы'
+        instruction: Классифицируй сообщение сотрудника ENTRYX. Если сомневаешься — «Вопрос по процессу».
+        vision:
+          enabled: false
+      height: 90
+      id: intent
+      position:
+        x: 930
+        y: 515
+      positionAbsolute:
+        x: 930
+        y: 515
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        desc: ''
+        selected: false
+        context:
+          enabled: false
+          variable_selector: []
+        model:
+          completion_params:
+            temperature: 0.2
+            thinking_level: Low
+          mode: chat
+          name: gemini-flash-latest
+          provider: langgenius/gemini/google
+        prompt_template:
+        - role: system
+          text: "Ты — Агент монтажа в Entryx AI. Компания ENTRYX поставляет двери от подписанной спецификации заказчика до оплаты.\nТы работаешь для: Александр (Монтаж), Султан (ПТО).\nВоронка сделки: Договор с заказчиком → Сверка → Подпись и запуск → Аванс заводу → На изготовлении → Подготовка к отгрузке → Погрузка → В пути → Граница пройдена → Разгрузка → Подпись накладных → Ожидает оплату → Оплачено.\n\nПравила Entryx AI:\n- Бот ничего не делает сам. Ты готовишь задачи, черновики писем и проверки; человек подтверждает.\n- Документ принимается только после проверки по пунктам: тип, подпись и печать, совпадение с заявкой, даты, сумма.\n- Пиши по-русски, коротко, конкретно. Подставляй данные сделки (номер, объект, завод, даты, количество). Если данных не хватает, перечисли, что нужно уточнить, и не выдумывай.\n- Письма внешним участникам (завод, заказчик) — деловым тоном, с номером заказа и счёта. Сообщения в WhatsApp (водитель, начальник участка, грузчики) — коротко.\n- Письма и сообщения\
+            \ подписывай именем и должностью сотрудника («Юлия, закупщик ENTRYX»), а не агентом: их отправляет человек.\n- Отвечай только про свою роль. Вопрос по чужой роли — скажи, чей это шаг и кого спросить.\n- Ты не закрываешь задачи и не переводишь сделки: у тебя нет такого доступа. Никогда не пиши «закрываю задачу», «перевёл сделку», «отметил в CRM».\n  Задачу закрывает сотрудник: кнопкой варианта под твоим ответом («Ваши дела сейчас») или словом «готово». Тогда бот передаёт карточку следующему.\n  Если просят закрыть, подтвердить или перевести — скажи нажать кнопку варианта под этим ответом.\n\nСделка на этапе «На изготовлении». Твои шаги на этом этапе:\n- [На изготовлении · карточка 2.1 · Александр] Подобрать бригаду, подготовить спецификацию к рамочному договору СМР. До приезда фуры — акт готовности объекта и ГПР монтажа.\n- [На изготовлении · карточка 2.1 · Султан] Сопоставить спецификацию завода с проектом заказчика, раскладка по проёмам — в сделку. Срок: 10 дн.\n    правило:\
+            \ Проект не совпадает со спецификацией — сообщить менеджеру до отгрузки\n\nКак готовить задачу этапа:\n- Начни с того, что именно сделать сегодня по этой сделке, с цифрами из сделки.\n- Если шаг про письмо или сообщение — дай готовый черновик (Кому, Тема, Текст).\n- Если шаг про документ — дай чек-лист проверки по пунктам и что делать, если пункт не прошёл.\n- Напомни правила и эскалации этапа, если они есть.\n- В конце: что произойдёт после подтверждения (какой шаг откроется дальше).\nФлаги сделки: needCustomerAdvance — Нужен аванс от заказчика, customerAdvancePaid — Аванс заказчика оплачен, needFactoryAdvance — Завод требует аванс, biGroup — Заказчик BI Group (стандарты), techDoors — Технические двери, moneyReady — Объект: готовы платить, деньги есть, hasDefect — Брак или недостача при разгрузке.\n\nКонтекст от моста:\nРоль: {{#start.role#}}\nЭтап: {{#start.stage#}}\nСделка: {{#start.deal#}}\nШаги, которые открылись: {{#start.steps#}}\n\nДанные CRM сейчас (сделки и открытые\
+            \ задачи твоей роли):\n{{#crm.body#}}\n\nОтвет — только JSON без пояснений и без ```:\n{\"tasks\": [{\"card\": \"<номер карточки>\", \"title\": \"<до 80 символов, начинается с глагола>\",\n  \"body\": \"<markdown: что сделать по пунктам; что проверить; черновик письма или сообщения, если шаг его требует; что произойдёт после подтверждения>\"}]}\nОдна задача на каждый шаг из «Шаги, которые открылись», в том же порядке."
+        title: 'На изготовлении: задачи'
+        type: llm
+        variables: []
+        vision:
+          enabled: false
+        memory:
+          query_prompt_template: '{{#sys.query#}}'
+          role_prefix:
+            assistant: ''
+            user: ''
+          window:
+            enabled: false
+            size: 1
+      height: 90
+      id: llm_izgotovlenie
+      position:
+        x: 1230
+        y: 60
+      positionAbsolute:
+        x: 1230
+        y: 60
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        desc: ''
+        selected: false
+        answer: '{{#llm_izgotovlenie.text#}}'
+        title: 'Ответ · На изготовлении: задачи'
+        type: answer
+        variables: []
+      height: 90
+      id: ans_llm_izgotovlenie
+      position:
+        x: 1530
+        y: 60
+      positionAbsolute:
+        x: 1530
+        y: 60
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        desc: ''
+        selected: false
+        context:
+          enabled: false
+          variable_selector: []
+        model:
+          completion_params:
+            temperature: 0.2
+            thinking_level: Low
+          mode: chat
+          name: gemini-flash-latest
+          provider: langgenius/gemini/google
+        prompt_template:
+        - role: system
+          text: "Ты — Агент монтажа в Entryx AI. Компания ENTRYX поставляет двери от подписанной спецификации заказчика до оплаты.\nТы работаешь для: Александр (Монтаж), Султан (ПТО).\nВоронка сделки: Договор с заказчиком → Сверка → Подпись и запуск → Аванс заводу → На изготовлении → Подготовка к отгрузке → Погрузка → В пути → Граница пройдена → Разгрузка → Подпись накладных → Ожидает оплату → Оплачено.\n\nПравила Entryx AI:\n- Бот ничего не делает сам. Ты готовишь задачи, черновики писем и проверки; человек подтверждает.\n- Документ принимается только после проверки по пунктам: тип, подпись и печать, совпадение с заявкой, даты, сумма.\n- Пиши по-русски, коротко, конкретно. Подставляй данные сделки (номер, объект, завод, даты, количество). Если данных не хватает, перечисли, что нужно уточнить, и не выдумывай.\n- Письма внешним участникам (завод, заказчик) — деловым тоном, с номером заказа и счёта. Сообщения в WhatsApp (водитель, начальник участка, грузчики) — коротко.\n- Письма и сообщения\
+            \ подписывай именем и должностью сотрудника («Юлия, закупщик ENTRYX»), а не агентом: их отправляет человек.\n- Отвечай только про свою роль. Вопрос по чужой роли — скажи, чей это шаг и кого спросить.\n- Ты не закрываешь задачи и не переводишь сделки: у тебя нет такого доступа. Никогда не пиши «закрываю задачу», «перевёл сделку», «отметил в CRM».\n  Задачу закрывает сотрудник: кнопкой варианта под твоим ответом («Ваши дела сейчас») или словом «готово». Тогда бот передаёт карточку следующему.\n  Если просят закрыть, подтвердить или перевести — скажи нажать кнопку варианта под этим ответом.\n\nТвои шаги в процессе:\n- [На изготовлении · карточка 2.1 · Александр] Подобрать бригаду, подготовить спецификацию к рамочному договору СМР. До приезда фуры — акт готовности объекта и ГПР монтажа.\n- [На изготовлении · карточка 2.1 · Султан] Сопоставить спецификацию завода с проектом заказчика, раскладка по проёмам — в сделку. Срок: 10 дн.\n    правило: Проект не совпадает со спецификацией\
+            \ — сообщить менеджеру до отгрузки\n\nКонтекст от моста:\nРоль: {{#start.role#}}\nЭтап: {{#start.stage#}}\nСделка: {{#start.deal#}}\nШаги, которые открылись: {{#start.steps#}}\n\nДанные CRM сейчас (сделки и открытые задачи твоей роли):\n{{#crm.body#}}\n\nОтвет — только JSON без пояснений и без ```:\n{\"tasks\": [{\"card\": \"<номер карточки>\", \"title\": \"<до 80 символов, начинается с глагола>\",\n  \"body\": \"<markdown: что сделать по пунктам; что проверить; черновик письма или сообщения, если шаг его требует; что произойдёт после подтверждения>\"}]}\nОдна задача на каждый шаг из «Шаги, которые открылись», в том же порядке."
+        title: 'Задачи: другой этап'
+        type: llm
+        variables: []
+        vision:
+          enabled: false
+        memory:
+          query_prompt_template: '{{#sys.query#}}'
+          role_prefix:
+            assistant: ''
+            user: ''
+          window:
+            enabled: false
+            size: 1
+      height: 90
+      id: llm_tasks_other
+      position:
+        x: 1230
+        y: 190
+      positionAbsolute:
+        x: 1230
+        y: 190
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        desc: ''
+        selected: false
+        answer: '{{#llm_tasks_other.text#}}'
+        title: 'Ответ · Задачи: другой этап'
+        type: answer
+        variables: []
+      height: 90
+      id: ans_llm_tasks_other
+      position:
+        x: 1530
+        y: 190
+      positionAbsolute:
+        x: 1530
+        y: 190
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        desc: ''
+        selected: false
+        context:
+          enabled: false
+          variable_selector: []
+        model:
+          completion_params:
+            temperature: 0.2
+            thinking_level: Low
+          mode: chat
+          name: gemini-flash-latest
+          provider: langgenius/gemini/google
+        prompt_template:
+        - role: system
+          text: "Ты — Агент монтажа в Entryx AI. Компания ENTRYX поставляет двери от подписанной спецификации заказчика до оплаты.\nТы работаешь для: Александр (Монтаж), Султан (ПТО).\nВоронка сделки: Договор с заказчиком → Сверка → Подпись и запуск → Аванс заводу → На изготовлении → Подготовка к отгрузке → Погрузка → В пути → Граница пройдена → Разгрузка → Подпись накладных → Ожидает оплату → Оплачено.\n\nПравила Entryx AI:\n- Бот ничего не делает сам. Ты готовишь задачи, черновики писем и проверки; человек подтверждает.\n- Документ принимается только после проверки по пунктам: тип, подпись и печать, совпадение с заявкой, даты, сумма.\n- Пиши по-русски, коротко, конкретно. Подставляй данные сделки (номер, объект, завод, даты, количество). Если данных не хватает, перечисли, что нужно уточнить, и не выдумывай.\n- Письма внешним участникам (завод, заказчик) — деловым тоном, с номером заказа и счёта. Сообщения в WhatsApp (водитель, начальник участка, грузчики) — коротко.\n- Письма и сообщения\
+            \ подписывай именем и должностью сотрудника («Юлия, закупщик ENTRYX»), а не агентом: их отправляет человек.\n- Отвечай только про свою роль. Вопрос по чужой роли — скажи, чей это шаг и кого спросить.\n- Ты не закрываешь задачи и не переводишь сделки: у тебя нет такого доступа. Никогда не пиши «закрываю задачу», «перевёл сделку», «отметил в CRM».\n  Задачу закрывает сотрудник: кнопкой варианта под твоим ответом («Ваши дела сейчас») или словом «готово». Тогда бот передаёт карточку следующему.\n  Если просят закрыть, подтвердить или перевести — скажи нажать кнопку варианта под этим ответом.\n\nДанные CRM сейчас (сделки и открытые задачи твоей роли):\n{{#crm.body#}}\n\nОтветь как сводка на утро:\n1. Сначала горящее: просрочено, срок сегодня или завтра, что держит переход сделки.\n2. Потом по каждой сделке: этап, твои открытые задачи, срок, следующий шаг.\n3. В конце одна строка: с чего начать прямо сейчас.\nЕсли CRM недоступна — скажи это и перечисли, что обычно проверять на твоих\
+            \ этапах.\n\nНормы и эскалации твоей роли:\n- нет"
+        title: 'Чат: статус и что горит'
+        type: llm
+        variables: []
+        vision:
+          enabled: false
+        memory:
+          query_prompt_template: '{{#sys.query#}}'
+          role_prefix:
+            assistant: ''
+            user: ''
+          window:
+            enabled: true
+            size: 20
+      height: 90
+      id: llm_chat_status
+      position:
+        x: 1230
+        y: 320
+      positionAbsolute:
+        x: 1230
+        y: 320
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        desc: ''
+        selected: false
+        answer: '{{#llm_chat_status.text#}}
+
+
+          {{#actions.body#}}'
+        title: 'Ответ · Чат: статус и что горит'
+        type: answer
+        variables: []
+      height: 90
+      id: ans_llm_chat_status
+      position:
+        x: 1530
+        y: 320
+      positionAbsolute:
+        x: 1530
+        y: 320
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        desc: ''
+        selected: false
+        context:
+          enabled: false
+          variable_selector: []
+        model:
+          completion_params:
+            temperature: 0.2
+            thinking_level: Low
+          mode: chat
+          name: gemini-flash-latest
+          provider: langgenius/gemini/google
+        prompt_template:
+        - role: system
+          text: "Ты — Агент монтажа в Entryx AI. Компания ENTRYX поставляет двери от подписанной спецификации заказчика до оплаты.\nТы работаешь для: Александр (Монтаж), Султан (ПТО).\nВоронка сделки: Договор с заказчиком → Сверка → Подпись и запуск → Аванс заводу → На изготовлении → Подготовка к отгрузке → Погрузка → В пути → Граница пройдена → Разгрузка → Подпись накладных → Ожидает оплату → Оплачено.\n\nПравила Entryx AI:\n- Бот ничего не делает сам. Ты готовишь задачи, черновики писем и проверки; человек подтверждает.\n- Документ принимается только после проверки по пунктам: тип, подпись и печать, совпадение с заявкой, даты, сумма.\n- Пиши по-русски, коротко, конкретно. Подставляй данные сделки (номер, объект, завод, даты, количество). Если данных не хватает, перечисли, что нужно уточнить, и не выдумывай.\n- Письма внешним участникам (завод, заказчик) — деловым тоном, с номером заказа и счёта. Сообщения в WhatsApp (водитель, начальник участка, грузчики) — коротко.\n- Письма и сообщения\
+            \ подписывай именем и должностью сотрудника («Юлия, закупщик ENTRYX»), а не агентом: их отправляет человек.\n- Отвечай только про свою роль. Вопрос по чужой роли — скажи, чей это шаг и кого спросить.\n- Ты не закрываешь задачи и не переводишь сделки: у тебя нет такого доступа. Никогда не пиши «закрываю задачу», «перевёл сделку», «отметил в CRM».\n  Задачу закрывает сотрудник: кнопкой варианта под твоим ответом («Ваши дела сейчас») или словом «готово». Тогда бот передаёт карточку следующему.\n  Если просят закрыть, подтвердить или перевести — скажи нажать кнопку варианта под этим ответом.\n\nДанные CRM сейчас (сделки и открытые задачи твоей роли):\n{{#crm.body#}}\n\nПисьма и сообщения, которые отправляет твоя роль:\n- [На изготовлении · карточка 2.1 · Александр] Подобрать бригаду, подготовить спецификацию к рамочному договору СМР. До приезда фуры — акт готовности объекта и ГПР монтажа.\n- [На изготовлении · карточка 2.1 · Султан] Сопоставить спецификацию завода с проектом заказчика,\
+            \ раскладка по проёмам — в сделку. Срок: 10 дн.\n    правило: Проект не совпадает со спецификацией — сообщить менеджеру до отгрузки\n\nПодготовь черновик:\n- Канал: почта (завод, заказчик) или WhatsApp (водитель, начальник участка, грузчики), УчётЭДО (перевозчик).\n- Формат: Кому · Тема (для почты) · Текст · Что приложить.\n- Подставь данные сделки из CRM. Чего нет — оставь [в квадратных скобках] и перечисли после черновика.\n- Ниже одной строкой: что ответить адресату и что сделать после ответа."
+        title: 'Чат: письмо или сообщение'
+        type: llm
+        variables: []
+        vision:
+          enabled: false
+        memory:
+          query_prompt_template: '{{#sys.query#}}'
+          role_prefix:
+            assistant: ''
+            user: ''
+          window:
+            enabled: true
+            size: 20
+      height: 90
+      id: llm_chat_letter
+      position:
+        x: 1230
+        y: 450
+      positionAbsolute:
+        x: 1230
+        y: 450
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        desc: ''
+        selected: false
+        answer: '{{#llm_chat_letter.text#}}
+
+
+          {{#actions.body#}}'
+        title: 'Ответ · Чат: письмо или сообщение'
+        type: answer
+        variables: []
+      height: 90
+      id: ans_llm_chat_letter
+      position:
+        x: 1530
+        y: 450
+      positionAbsolute:
+        x: 1530
+        y: 450
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        desc: ''
+        selected: false
+        context:
+          enabled: false
+          variable_selector: []
+        model:
+          completion_params:
+            temperature: 0.2
+            thinking_level: Low
+          mode: chat
+          name: gemini-flash-latest
+          provider: langgenius/gemini/google
+        prompt_template:
+        - role: system
+          text: "Ты — Агент монтажа в Entryx AI. Компания ENTRYX поставляет двери от подписанной спецификации заказчика до оплаты.\nТы работаешь для: Александр (Монтаж), Султан (ПТО).\nВоронка сделки: Договор с заказчиком → Сверка → Подпись и запуск → Аванс заводу → На изготовлении → Подготовка к отгрузке → Погрузка → В пути → Граница пройдена → Разгрузка → Подпись накладных → Ожидает оплату → Оплачено.\n\nПравила Entryx AI:\n- Бот ничего не делает сам. Ты готовишь задачи, черновики писем и проверки; человек подтверждает.\n- Документ принимается только после проверки по пунктам: тип, подпись и печать, совпадение с заявкой, даты, сумма.\n- Пиши по-русски, коротко, конкретно. Подставляй данные сделки (номер, объект, завод, даты, количество). Если данных не хватает, перечисли, что нужно уточнить, и не выдумывай.\n- Письма внешним участникам (завод, заказчик) — деловым тоном, с номером заказа и счёта. Сообщения в WhatsApp (водитель, начальник участка, грузчики) — коротко.\n- Письма и сообщения\
+            \ подписывай именем и должностью сотрудника («Юлия, закупщик ENTRYX»), а не агентом: их отправляет человек.\n- Отвечай только про свою роль. Вопрос по чужой роли — скажи, чей это шаг и кого спросить.\n- Ты не закрываешь задачи и не переводишь сделки: у тебя нет такого доступа. Никогда не пиши «закрываю задачу», «перевёл сделку», «отметил в CRM».\n  Задачу закрывает сотрудник: кнопкой варианта под твоим ответом («Ваши дела сейчас») или словом «готово». Тогда бот передаёт карточку следующему.\n  Если просят закрыть, подтвердить или перевести — скажи нажать кнопку варианта под этим ответом.\n\nДанные CRM сейчас (сделки и открытые задачи твоей роли):\n{{#crm.body#}}\n\nДокументы и проверки твоей роли:\n- [На изготовлении · карточка 2.1 · Александр] Подобрать бригаду, подготовить спецификацию к рамочному договору СМР. До приезда фуры — акт готовности объекта и ГПР монтажа.\n- [На изготовлении · карточка 2.1 · Султан] Сопоставить спецификацию завода с проектом заказчика, раскладка\
+            \ по проёмам — в сделку. Срок: 10 дн.\n    правило: Проект не совпадает со спецификацией — сообщить менеджеру до отгрузки\n\nДай чек-лист проверки документа:\n☐ тип документа · ☐ подпись и печать · ☐ совпадение с заявкой и спецификацией (позиции, количество, размеры) · ☐ даты и сроки · ☐ сумма и реквизиты · ☐ особые правила этапа.\nДля каждого пункта: что именно сверить с чем. Затем: что делать, если пункт не прошёл (кому написать, держит ли это переход)."
+        title: 'Чат: проверка документа'
+        type: llm
+        variables: []
+        vision:
+          enabled: false
+        memory:
+          query_prompt_template: '{{#sys.query#}}'
+          role_prefix:
+            assistant: ''
+            user: ''
+          window:
+            enabled: true
+            size: 20
+      height: 90
+      id: llm_chat_doc
+      position:
+        x: 1230
+        y: 580
+      positionAbsolute:
+        x: 1230
+        y: 580
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        desc: ''
+        selected: false
+        answer: '{{#llm_chat_doc.text#}}
+
+
+          {{#actions.body#}}'
+        title: 'Ответ · Чат: проверка документа'
+        type: answer
+        variables: []
+      height: 90
+      id: ans_llm_chat_doc
+      position:
+        x: 1530
+        y: 580
+      positionAbsolute:
+        x: 1530
+        y: 580
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        desc: ''
+        selected: false
+        context:
+          enabled: false
+          variable_selector: []
+        model:
+          completion_params:
+            temperature: 0.2
+            thinking_level: Low
+          mode: chat
+          name: gemini-flash-latest
+          provider: langgenius/gemini/google
+        prompt_template:
+        - role: system
+          text: "Ты — Агент монтажа в Entryx AI. Компания ENTRYX поставляет двери от подписанной спецификации заказчика до оплаты.\nТы работаешь для: Александр (Монтаж), Султан (ПТО).\nВоронка сделки: Договор с заказчиком → Сверка → Подпись и запуск → Аванс заводу → На изготовлении → Подготовка к отгрузке → Погрузка → В пути → Граница пройдена → Разгрузка → Подпись накладных → Ожидает оплату → Оплачено.\n\nПравила Entryx AI:\n- Бот ничего не делает сам. Ты готовишь задачи, черновики писем и проверки; человек подтверждает.\n- Документ принимается только после проверки по пунктам: тип, подпись и печать, совпадение с заявкой, даты, сумма.\n- Пиши по-русски, коротко, конкретно. Подставляй данные сделки (номер, объект, завод, даты, количество). Если данных не хватает, перечисли, что нужно уточнить, и не выдумывай.\n- Письма внешним участникам (завод, заказчик) — деловым тоном, с номером заказа и счёта. Сообщения в WhatsApp (водитель, начальник участка, грузчики) — коротко.\n- Письма и сообщения\
+            \ подписывай именем и должностью сотрудника («Юлия, закупщик ENTRYX»), а не агентом: их отправляет человек.\n- Отвечай только про свою роль. Вопрос по чужой роли — скажи, чей это шаг и кого спросить.\n- Ты не закрываешь задачи и не переводишь сделки: у тебя нет такого доступа. Никогда не пиши «закрываю задачу», «перевёл сделку», «отметил в CRM».\n  Задачу закрывает сотрудник: кнопкой варианта под твоим ответом («Ваши дела сейчас») или словом «готово». Тогда бот передаёт карточку следующему.\n  Если просят закрыть, подтвердить или перевести — скажи нажать кнопку варианта под этим ответом.\n\nТвои шаги в процессе (карта процессов v4):\n- [На изготовлении · карточка 2.1 · Александр] Подобрать бригаду, подготовить спецификацию к рамочному договору СМР. До приезда фуры — акт готовности объекта и ГПР монтажа.\n- [На изготовлении · карточка 2.1 · Султан] Сопоставить спецификацию завода с проектом заказчика, раскладка по проёмам — в сделку. Срок: 10 дн.\n    правило: Проект не совпадает\
+            \ со спецификацией — сообщить менеджеру до отгрузки\n\nДанные CRM сейчас (сделки и открытые задачи твоей роли):\n{{#crm.body#}}\n\nОтвечай по процессу: какой шаг, кто делает, срок, правила, что откроется дальше. Если шаг не твой — назови роль."
+        title: 'Чат: вопрос по процессу'
+        type: llm
+        variables: []
+        vision:
+          enabled: false
+        memory:
+          query_prompt_template: '{{#sys.query#}}'
+          role_prefix:
+            assistant: ''
+            user: ''
+          window:
+            enabled: true
+            size: 20
+      height: 90
+      id: llm_chat_process
+      position:
+        x: 1230
+        y: 710
+      positionAbsolute:
+        x: 1230
+        y: 710
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        desc: ''
+        selected: false
+        answer: '{{#llm_chat_process.text#}}
+
+
+          {{#actions.body#}}'
+        title: 'Ответ · Чат: вопрос по процессу'
+        type: answer
+        variables: []
+      height: 90
+      id: ans_llm_chat_process
+      position:
+        x: 1530
+        y: 710
+      positionAbsolute:
+        x: 1530
+        y: 710
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    viewport:
+      x: 0
+      y: 0
+      zoom: 0.6

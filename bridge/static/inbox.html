@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Entryx · уведомления</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Onest:wght@400;500;600;700&display=swap">
+<style>
+/* Лента уведомлений одной роли: вкладки агентов → группы (просрочено, эскалации, сегодня, проблемы, напоминания, новые задачи). */
+:root{
+  --bg:#F2F4F7; --surface:#FFFFFF; --sunken:#EAEEF3; --ink:#141922; --muted:#586172; --faint:#8A93A2; --line:#D9DEE6;
+  --accent:#2747C9; --accent-soft:#E6EBFB;
+  --stop:#C23B3B; --stop-soft:#FCEBEB; --late:#B4400E; --late-soft:#FBEADF; --ok:#16774A; --ok-soft:#E0F1E7;
+  --f-ui:"Onest",system-ui,-apple-system,"Segoe UI",sans-serif; --f-mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#12151B; --surface:#1A1F28; --sunken:#222833; --ink:#E7EAF0; --muted:#A3ACBB; --faint:#78818F; --line:#2E3542;
+  --accent:#8EA4FF; --accent-soft:#232C4D;
+  --stop:#F08A8A; --stop-soft:#3A1E21; --late:#F2A07A; --late-soft:#3A2418; --ok:#7AD3A5; --ok-soft:#163026; color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 var(--f-ui)}
+header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 20px;background:var(--surface);border-bottom:1px solid var(--line)}
+.logo{width:30px;height:30px;border-radius:8px;background:var(--accent);color:#fff;display:grid;place-items:center;font-weight:700}
+header b{display:block;font-size:15px}header span{font-size:12px;color:var(--muted)}
+.sp{flex:1}.upd{font:12px var(--f-mono);color:var(--faint)}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+nav{display:flex;gap:6px;flex-wrap:wrap;padding:12px 20px 0;max-width:900px;margin:0 auto}
+nav button{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:5px 12px;cursor:pointer}
+nav button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+main{max-width:900px;margin:0 auto;padding:14px 20px 40px;display:grid;gap:16px}
+h2{margin:0;font-size:20px}
+.sub{color:var(--muted);font-size:13px;margin-top:2px}
+.grp h3{margin:0 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);display:flex;gap:8px;align-items:center}
+.cnt{font:11px var(--f-mono);background:var(--sunken);border-radius:999px;padding:1px 7px;color:var(--muted)}
+.it{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px;display:grid;gap:3px}
+.it.overdue,.it.escalation{border-left-color:var(--stop)}.it.held,.it.problem{border-left-color:var(--late)}
+.it.today{border-left-color:var(--accent)}.it.new{border-left-color:var(--ok)}
+.it .top{display:flex;gap:8px;flex-wrap:wrap;align-items:baseline;font-size:12.5px;color:var(--muted)}
+.it .top b{color:var(--ink);font-size:13.5px}
+.it .t{font-weight:600}.it .x{font-size:13.5px}
+.it time{font:11.5px var(--f-mono);color:var(--faint);margin-left:auto}
+a.it{color:inherit;text-decoration:none}a.it:hover{border-color:var(--faint);text-decoration:none}
+.it .go{font-size:12.5px;color:var(--accent);font-weight:500;margin-top:2px}
+.tochat{font-weight:600;border:1px solid var(--accent);border-radius:999px;padding:5px 12px}
+.tochat:hover{background:var(--accent-soft);text-decoration:none}
+.empty{color:var(--faint);background:var(--surface);border:1px dashed var(--line);border-radius:10px;padding:18px;text-align:center}
+.hint{font-size:12.5px;color:var(--muted)}
+@media (max-width:600px){header,nav,main{padding-left:16px;padding-right:16px}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">E</div>
+  <div><b>Уведомления</b><span>Сроки, напоминания, эскалации и проблемы по вашим сделкам</span></div>
+  <div class="sp"></div>
+  <a href="/">Трекер проектов</a>
+  <a class="tochat" id="tochat" href="/app">← В чат</a>
+  <span class="upd" id="upd"></span>
+</header>
+<nav id="tabs" aria-label="Роль"></nav>
+<main id="main"><div class="empty">Загружаю…</div></main>
+<script>
+const GROUPS = [
+  ["overdue", "Просрочено"], ["escalation", "Эскалации"], ["held", "Сделка стоит"], ["today", "Срок сегодня"],
+  ["problem", "Проблемы по сделкам"], ["soon", "Напоминания"], ["new", "Новые задачи"], ["info", "Изменения по сделкам"],
+];
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+const when = iso => { if (!iso) return ""; const d = new Date(iso); return d.toLocaleString("ru-RU", {day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit"}); };
+let agent = new URLSearchParams(location.search).get("agent") || "manager";
+
+async function load() {
+  try {
+    const r = await fetch("/api/inbox?agent=" + encodeURIComponent(agent));
+    render(await r.json());
+  } catch (e) {
+    document.getElementById("main").innerHTML = '<div class="empty">Мост не отвечает. Проверьте контейнер entryx-bridge.</div>';
+  }
+}
+
+// Уведомление → чат роли: свои задачи открываем «Что на мне сегодня», остальное — «Мои проекты».
+const MINE = new Set(["overdue", "today", "soon", "new"]);
+const chatUrl = k => `/app?agent=${encodeURIComponent(agent)}&ask=${encodeURIComponent(MINE.has(k) ? "Сегодня" : "Мои проекты")}`;
+
+let lastSig = "";
+function render(d) {
+  document.getElementById("tochat").href = "/app?agent=" + encodeURIComponent(agent);
+  document.getElementById("upd").textContent = "обновлено " + when(d.generated_at);
+  // Перерисовываем, только если что-то изменилось: иначе клик по уведомлению может попасть на смену разметки.
+  const sig = JSON.stringify([agent, d.hot, d.items]);
+  if (sig === lastSig) return;
+  lastSig = sig;
+  document.getElementById("tabs").innerHTML = d.agents.map(a =>
+    `<button data-k="${a.key}" aria-pressed="${a.key === agent}">${esc(a.people.join(", "))}</button>`).join("");
+  document.getElementById("upd").textContent = "обновлено " + when(d.generated_at);
+  document.title = (d.hot ? `(${d.hot}) ` : "") + "Уведомления · " + d.people.join(", ");
+  const parts = [`<div><h2>${esc(d.people.join(", "))}</h2><div class="sub">${esc(d.title)} · срочных: ${d.hot}</div></div>`];
+  if (!d.items.length) parts.push('<div class="empty">Уведомлений нет. Сроки и проблемы по вашим задачам появятся здесь.</div>');
+  for (const [k, name] of GROUPS) {
+    const list = d.items.filter(i => i.kind === k);
+    if (!list.length) continue;
+    parts.push(`<section class="grp"><h3>${name}<span class="cnt">${list.length}</span></h3>` + list.map(i => `
+      <a class="it ${k}" href="${chatUrl(k)}">
+        <div class="top"><b>${esc(i.deal)}</b>${i.stage ? `<span>${esc(i.stage)}</span>` : ""}${i.who ? `<span>· ${esc(i.who)}</span>` : ""}<time>${when(i.at)}</time></div>
+        ${i.title ? `<div class="t">${esc(i.title)}</div>` : ""}
+        <div class="x">${esc(i.text)}</div>
+        <div class="go">${MINE.has(k) ? "Ответить в чате →" : "Открыть сделку в чате →"}</div>
+      </a>`).join("") + "</section>");
+  }
+  parts.push('<div class="hint">Нажмите на уведомление — откроется чат агента: ваши задачи с кнопками ответа или состояние сделок. Страница обновляется сама.</div>');
+  document.getElementById("main").innerHTML = parts.join("");
+}
+
+document.getElementById("tabs").addEventListener("click", e => {
+  const b = e.target.closest("button[data-k]"); if (!b) return;
+  agent = b.dataset.k; history.replaceState(null, "", "?agent=" + agent); load();
+});
+load(); setInterval(load, 10000);
+</script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+# Entryx: агенты Dify ходят к мосту на этом компьютере (http://host.docker.internal:8787).
+# В Docker Desktop (Windows, macOS) адрес есть сам, в Linux его добавляет эта строка.
+# docker compose подхватывает этот файл автоматически рядом с docker-compose.yaml.
+x-entryx-host: &entryx-host
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+
+services:
+  api: *entryx-host
+  worker: *entryx-host
+  ssrf_proxy: *entryx-host
+  plugin_daemon: *entryx-host
