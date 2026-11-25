@@ -11,7 +11,7 @@
 <body>
 <header class="top" id="top"></header>
 <main class="stage noconsole app">
-  <section class="phones" aria-label="Телефон роли">
+  <section class="phones" aria-label="Приложение роли">
     <div class="ph-col"><div class="phone"><div class="screen" id="screen"></div></div></div>
   </section>
 </main>
@@ -185,7 +185,6 @@ function renderTop() {
 }
 
 /* ---------- экраны телефона ---------- */
-const sbarHTML = () => `<div class="sbar"><span>${hm(Date.now())}</span><span class="island"></span><span class="sb-i">${ic("sig", 17)}${ic("wifi", 17, 2.2)}${ic("bat", 24, 1.6)}</span></div>`;
 const pjIcon = (p, sm) => p ? `<span class="sq${sm ? " sm" : ""}" style="background:${p.color};color:#fff">${esc(p.letter)}</span>` : `<span class="sq light${sm ? " sm" : ""}">?</span>`;
 function tabbarHTML() {
   const nt = S.me ? S.me.tasks.length : 0, nb = S.inbox ? S.inbox.hot : 0;
@@ -303,7 +302,7 @@ function renderPhone() {
   const ae = document.activeElement; let foc = null;
   if (ae && host.contains(ae) && ae.dataset && ae.dataset.k) foc = {k: ae.dataset.k, s: ae.selectionStart, e: ae.selectionEnd};
   const inner = S.scr === "notif" ? notifHTML() : S.scr === "pchat" ? pchatHTML() : S.scr === "achat" ? achatHTML() : todayHTML();
-  host.innerHTML = sbarHTML() + inner + '<div class="home-ind"></div>';
+  host.innerHTML = inner;
   const nb = host.querySelector(".body"), sc = S.scroll[key], isChat = S.scr === "pchat" || S.scr === "achat";
   if (nb) {
     if (S.focus) {
@@ -478,7 +477,6 @@ document.addEventListener("keydown", e => { if (e.key === "Escape" && S.pop) { S
   else if (h === "#achat") go("achat");
   else if (h.startsWith("#deal=")) go("pchat", h.slice(6));
   setInterval(() => { loadMe(); loadInbox(); }, 15000);
-  setInterval(() => { const sb = document.querySelector(".sbar span"); if (sb) sb.textContent = hm(Date.now()); }, 30000);
 })();
 </script>
 </body>

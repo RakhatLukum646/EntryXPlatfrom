@@ -937,13 +937,23 @@ ul.need{margin:6px 0 8px;padding-left:20px;font-size:14px;line-height:1.45}
 .jr b{color:var(--ink);font-weight:600}
 .jr.prob{color:var(--st-stop)}
 .err{padding:12px 14px;border-radius:14px;background:var(--st-stop-s);color:var(--st-stop);font-size:14.5px}
-@media (max-width:520px){
-  .top{padding:8px 12px;position:sticky}
+/* Приложение, а не макет: без рамки телефона, статус-бара и «чёлки». Экран — на всю высоту окна. */
+html,body{height:100%}
+body{display:flex;flex-direction:column;overflow:hidden}
+.top{position:static;flex:none;padding:10px 20px}
+.stage.app{flex:1;min-height:0;display:block;padding:0;max-width:none}
+.stage.app .phones{height:100%;padding:0;overflow:visible}
+.stage.app .ph-col{width:100%;max-width:760px;height:100%;margin:0 auto}
+.stage.app .phone{width:100%;height:100%;padding:0;border-radius:0;background:none;box-shadow:none}
+.stage.app .screen{width:100%;height:100%;border-radius:0;border-left:1px solid var(--pline);border-right:1px solid var(--pline)}
+.stage.app .tabbar{padding-bottom:8px}
+.stage.app .comp{padding-bottom:14px}
+@media (max-width:760px){
+  .stage.app .screen{border:0}
+  .top{padding:8px 12px}
   .top .brand .sub,.top .tbtn{display:none}
-  .stage{padding:0}
-  .phones{padding:0}
-  .ph-col{width:100%}
-  .phone{width:100%;padding:0;border-radius:0;background:none;box-shadow:none}
-  .screen{width:100%;height:calc(100dvh - 57px);border-radius:0}
-  .sbar,.home-ind{display:none}
 }
+.stage.app .td-head{padding-top:20px}
+.stage.app .big-t{padding-top:20px}
+.stage.app .hdr{padding-top:10px}
+.stage.app{width:100%;margin:0}
