@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from collections.abc import Iterator
 
 import httpx
@@ -30,8 +31,10 @@ def _key(agent: str) -> str:
     return key
 
 
-def _user(agent: str) -> str:
-    return f"web-{agent}"
+def _user(agent: str, scope: str = "") -> str:
+    """Пользователь Dify веб-чата: свой на агента, а у чата сделки — ещё и на сделку (scope = первые 8 знаков id)."""
+    scope = re.sub(r"[^0-9a-zA-Z-]", "", scope)[:12]
+    return f"web-{agent}" + (f"-{scope}" if scope else "")
 
 
 def _sse(payload: dict) -> str:
@@ -40,12 +43,13 @@ def _sse(payload: dict) -> str:
 
 def agents() -> list[dict]:
     return [
-        {"key": k, "title": a["title"], "people": [PROCESS["roles"][r]["person"] for r in a["roles"]]}
+        {"key": k, "title": a["title"], "people": [PROCESS["roles"][r]["person"] for r in a["roles"]],
+         "roles": [PROCESS["roles"][r]["name"] for r in a["roles"]]}
         for k, a in PROCESS["agents"].items()
     ]
 
 
-def stream(agent: str, query: str, conversation_id: str = "") -> Iterator[str]:
+def stream(agent: str, query: str, conversation_id: str = "", scope: str = "") -> Iterator[str]:
     """Пересылает поток Dify как есть (строки data: {...}). Чужой или удалённый разговор — начинаем новый."""
     try:
         key = _key(agent)
@@ -53,7 +57,7 @@ def stream(agent: str, query: str, conversation_id: str = "") -> Iterator[str]:
         yield _sse({"event": "error", "message": str(exc)})
         return
     for conv in ([conversation_id, ""] if conversation_id else [""]):
-        body = {"inputs": {}, "query": query, "response_mode": "streaming", "user": _user(agent), "conversation_id": conv}
+        body = {"inputs": {}, "query": query, "response_mode": "streaming", "user": _user(agent, scope), "conversation_id": conv}
         try:
             with httpx.stream("POST", f"{_api()}/chat-messages", headers={"Authorization": f"Bearer {key}"},
                               json=body, timeout=TIMEOUT) as r:
@@ -72,7 +76,7 @@ def stream(agent: str, query: str, conversation_id: str = "") -> Iterator[str]:
             return
 
 
-def history(agent: str, conversation_id: str = "") -> dict:
+def history(agent: str, conversation_id: str = "", scope: str = "") -> dict:
     """Приветствие агента и сообщения разговора. Без id — последний разговор веб-чата этого агента; «new» — пустой."""
     key = _key(agent)
     headers = {"Authorization": f"Bearer {key}"}
@@ -82,11 +86,11 @@ def history(agent: str, conversation_id: str = "") -> dict:
         if conversation_id == "new":
             return out
         if not conversation_id:
-            convs = c.get("/conversations", params={"user": _user(agent), "limit": 1}).json().get("data") or []
+            convs = c.get("/conversations", params={"user": _user(agent, scope), "limit": 1}).json().get("data") or []
             if not convs:
                 return out
             conversation_id = convs[0]["id"]
-        r = c.get("/messages", params={"user": _user(agent), "conversation_id": conversation_id, "limit": 100})
+        r = c.get("/messages", params={"user": _user(agent, scope), "conversation_id": conversation_id, "limit": 100})
         if r.status_code >= 400:
             return out
         out["conversation_id"] = conversation_id

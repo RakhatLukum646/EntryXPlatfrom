@@ -31,6 +31,7 @@ from chat_views import (  # noqa: E402
 from inbox import hot_count, inbox  # noqa: E402
 from tracker import tracker  # noqa: E402
 from twenty import Twenty  # noqa: E402
+import appdata  # noqa: E402
 import webchat  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -135,15 +136,26 @@ def chat_page() -> FileResponse:
     return FileResponse(Path(__file__).with_name("static") / "chat.html")
 
 
+@app.get("/app.css", include_in_schema=False)
+def app_css() -> FileResponse:
+    return FileResponse(Path(__file__).with_name("static") / "app.css", media_type="text/css")
+
+
+@app.get("/api/me")
+def me_api(agent: str) -> dict:
+    """Экраны приложения: мои дела с вариантами ответа, мои проекты, на ком шаг, журнал сделки."""
+    return appdata.me(views, agent)
+
+
 @app.get("/api/agents")
 def agents_api() -> list[dict]:
     return webchat.agents()
 
 
 @app.get("/api/history")
-def history_api(agent: str, conversation_id: str = "") -> dict:
+def history_api(agent: str, conversation_id: str = "", scope: str = "") -> dict:
     try:
-        return webchat.history(agent, conversation_id)
+        return webchat.history(agent, conversation_id, scope)
     except KeyError as exc:
         raise HTTPException(404, str(exc)) from exc
     except httpx.HTTPError as exc:
@@ -154,7 +166,8 @@ def history_api(agent: str, conversation_id: str = "") -> dict:
 async def chat_api(request: Request) -> StreamingResponse:
     body = await request.json()
     return StreamingResponse(
-        webchat.stream(body.get("agent", ""), (body.get("query") or "").strip(), body.get("conversation_id") or ""),
+        webchat.stream(body.get("agent", ""), (body.get("query") or "").strip(), body.get("conversation_id") or "",
+                       body.get("scope") or ""),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )

@@ -79,9 +79,9 @@ async function load() {
   }
 }
 
-// Уведомление → чат роли: свои задачи открываем «Что на мне сегодня», остальное — «Мои проекты».
+// Уведомление → чат этой сделки в приложении роли (/app#deal=<id>).
 const MINE = new Set(["overdue", "today", "soon", "new"]);
-const chatUrl = k => `/app?agent=${encodeURIComponent(agent)}&ask=${encodeURIComponent(MINE.has(k) ? "Сегодня" : "Мои проекты")}`;
+const chatUrl = i => `/app?agent=${encodeURIComponent(agent)}` + (i.deal_id ? `#deal=${encodeURIComponent(i.deal_id)}` : "");
 
 let lastSig = "";
 function render(d) {
@@ -101,7 +101,7 @@ function render(d) {
     const list = d.items.filter(i => i.kind === k);
     if (!list.length) continue;
     parts.push(`<section class="grp"><h3>${name}<span class="cnt">${list.length}</span></h3>` + list.map(i => `
-      <a class="it ${k}" href="${chatUrl(k)}">
+      <a class="it ${k}" href="${chatUrl(i)}">
         <div class="top"><b>${esc(i.deal)}</b>${i.stage ? `<span>${esc(i.stage)}</span>` : ""}${i.who ? `<span>· ${esc(i.who)}</span>` : ""}<time>${when(i.at)}</time></div>
         ${i.title ? `<div class="t">${esc(i.title)}</div>` : ""}
         <div class="x">${esc(i.text)}</div>
