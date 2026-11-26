@@ -14,7 +14,7 @@ services:
       DIFY_API: http://host.docker.internal/v1
       BRIDGE_DB: /data/bridge.db
     ports:
-      - "127.0.0.1:8787:8787"   # только с этого компьютера; Dify ходит сюда через host.docker.internal
+      - "127.0.0.1:8787:8787"   # только с этого компьютера; на Linux-сервере ещё tools/linux_bridge_port.sh
     volumes:
       - ../process:/app/process:ro
       - ./static:/app/bridge/static:ro   # страницы (чат, уведомления, трекер): правка без пересборки

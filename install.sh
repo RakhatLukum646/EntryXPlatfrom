@@ -81,6 +81,7 @@ step "Настраиваю воронку и поля сделки в Twenty"
 (cd bridge && "../$VPY" setup_crm.py)
 
 step "Запускаю мост Entryx"
+bash tools/linux_bridge_port.sh   # Linux: контейнерам Dify нужен доступ к мосту
 (cd bridge && docker compose up -d --build)
 wait_http http://localhost:8787/health мост 3
 

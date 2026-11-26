@@ -9,6 +9,7 @@
 __pycache__/
 
 # Данные моста
+bridge/docker-compose.override.yml
 bridge/bridge.db
 bridge/bridge.log
 bridge/data/*

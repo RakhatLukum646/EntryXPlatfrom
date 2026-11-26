@@ -407,7 +407,13 @@ async function send(key, query, label, opt) {
     }
     if (!bot.text && !bot.err) bot.err = "пустой ответ";
   } catch (e) { bot.err = e.message; }
-  if (bot.err && opt) delete S.picked[opt];
+  // Ответ не прошёл (ошибка или Dify не достучался до моста) — не держим кнопки «принятыми».
+  const lost = !!bot.err || /^\s*Мост Entryx недоступен/.test(bot.text);
+  if (label === "Отмена") S.picked = {};
+  else if (opt && lost) delete S.picked[opt];
+  else if (opt) setTimeout(() => { // мост не закрыл задачу и причину не ждёт — возвращаем кнопки
+    if (S.picked[opt] && !/причин/i.test(lastBot(key))) { delete S.picked[opt]; renderPhone(); toast("Задача ещё открыта. Проверьте ответ агента и нажмите ещё раз."); }
+  }, 20000);
   bot.pending = false; S.busy = false;
   cancelAnimationFrame(raf); raf = 0;
   renderPhone();
