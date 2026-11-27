@@ -29,7 +29,7 @@ def inbox(crm: Twenty, engine: Engine, agent: str) -> dict:
     lead = ESC_TO in roles
     persons = {PROCESS["roles"][r]["person"] for r in roles}
     deals = {d["id"]: d for d in crm.list("opportunities")}
-    tasks = {t["id"]: t for t in crm.list("tasks")}
+    tasks = {t["id"]: t for t in crm.open_tasks()}  # закрытые задачи уведомлениям не нужны
     db = engine.store.db
     items: list[dict] = []
 

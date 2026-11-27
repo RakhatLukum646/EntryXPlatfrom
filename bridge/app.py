@@ -99,7 +99,7 @@ def context(agent: str = "") -> str:
         d = slim_deal(deal)
         lines.append("- " + "; ".join(f"{k}: {v}" for k, v in d.items()))
     lines.append("\nОткрытые задачи роли:" if people else "\nОткрытые задачи:")
-    for task in crm.list("tasks"):
+    for task in crm.open_tasks():
         title = task.get("title") or ""
         if task.get("status") == "DONE" or (people and not any(title.startswith(p) for p in people)):
             continue
@@ -254,7 +254,9 @@ async def webhook(request: Request) -> dict:
     record = event.get("record") or {}
     with lock:
         if name.startswith("opportunity.") and record.get("id"):
+            crm.refresh("opportunities")  # CRM сообщила об изменении — снимок уже устарел
             engine.on_deal(crm.get("opportunities", record["id"]))
         elif name == "task.updated" and record.get("status") == "DONE":
+            crm.refresh("tasks")
             engine.on_task_done(record["id"])
     return {"ok": True}
