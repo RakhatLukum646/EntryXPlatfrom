@@ -12,7 +12,7 @@ import os
 import re
 import sqlite3
 import threading
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, wait
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -29,6 +29,7 @@ OPTION_SETS = PROCESS.get("option_sets", {})
 BRANCHES = PROCESS.get("branches", {})
 DEFAULT_OPTIONS = [{"label": "Подтвердить"}]
 BOT_MARK = "Подготовил бот · подтвердите"
+DRAFT_WAIT_SECONDS = 5
 
 
 DEAL_KEYS = ["name", "stage", "amount", "closeDate", *PROCESS["flags"], *PROCESS["fields"], *PROCESS.get("bot_fields", {})]
@@ -188,7 +189,7 @@ class Agents:
                 "response_mode": "blocking",
                 "user": "entryx-bridge",
             },
-            timeout=180,
+            timeout=DRAFT_WAIT_SECONDS,
         )
         if r.status_code >= 400:
             raise RuntimeError(f"{r.status_code}: {r.text[:300]}")
@@ -226,6 +227,7 @@ def step_of(row: tuple) -> dict | None:
 class Engine:
     def __init__(self, crm: Twenty, agents: Agents, store: Store) -> None:
         self.crm, self.agents, self.store = crm, agents, store
+        self.draft_pool = ThreadPoolExecutor(max_workers=len(PROCESS["roles"]))
         self.default_member = os.getenv("TWENTY_DEFAULT_MEMBER_ID") or None
         if not self.default_member:
             members = crm.list("workspaceMembers")
@@ -293,13 +295,14 @@ class Engine:
         deal_id, stage_key, wave = row
         role, card = self.store.db.execute("select role, card from task where id=?", (task_id,)).fetchone()
         person = PROCESS["roles"][role]["person"]
-        self.store.log(deal_id, "done", f"{person} подтвердил(а) задачу, карточка {card}")
+        stage_label = STAGES.get(stage_key, {}).get("label", stage_key)
+        self.store.log(deal_id, "done", f"{person} подтвердил(а) задачу, карточка {card} · «{stage_label}»")
         known_stage, current_wave, _ = self.store.deal(deal_id)
         if known_stage != stage_key or current_wave != wave:
             return  # закрыли неблокирующую задачу прошлого этапа
         if self.store.wave_open_blocking(deal_id, stage_key, wave) == 0:
             deal = self.crm.get("opportunities", deal_id)
-            self.open_wave(deal, stage_key, wave + 1)
+            self.on_deal(deal)
 
     # --- поля бота в CRM ----------------------------------------------------
     def crm_fields(self, deal_id: str) -> dict | None:
@@ -373,14 +376,21 @@ class Engine:
         by_role: dict[str, list[dict]] = {}
         for step in steps:
             by_role.setdefault(step["role"], []).append(step)
-        # Агенты разных ролей одной волны работают параллельно: волна ждёт самого медленного, а не сумму.
-        with ThreadPoolExecutor(max_workers=len(by_role)) as pool:
-            futures = {
-                role: pool.submit(self.agents.draft, PROCESS["roles"][role]["agent"], role, stage, deal, role_steps)
-                for role, role_steps in by_role.items()
-            }
+        # Один срок для всей волны. Карточки запаздывающих агентов создаются по шаблону процесса.
+        futures = {
+            role: self.draft_pool.submit(self.agents.draft, PROCESS["roles"][role]["agent"], role, stage, deal, role_steps)
+            for role, role_steps in by_role.items()
+        }
+        ready, pending = wait(futures.values(), timeout=DRAFT_WAIT_SECONDS)
+        if pending:
+            log.info("deal %s: using task templates for %d slow agents at %s/%s",
+                     deal["id"], len(pending), stage["key"], wave)
+        for future in pending:
+            future.cancel()
         for role, role_steps in by_role.items():
-            for step, draft in zip(role_steps, futures[role].result()):
+            future = futures[role]
+            drafts = future.result() if future in ready else [Agents._template(step) for step in role_steps]
+            for step, draft in zip(role_steps, drafts):
                 self._create_task(deal, stage, wave, step, draft)
 
     def _create_task(self, deal: dict, stage: dict, wave: int, step: dict, draft: dict, extra: str = "") -> str:

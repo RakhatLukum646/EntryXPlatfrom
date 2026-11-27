@@ -48,21 +48,30 @@ def sync_once() -> dict:
     with lock:
         deals = crm.list("opportunities")
         for deal in deals:
-            engine.on_deal(deal)
+            try:
+                engine.on_deal(deal)
+            except Exception:
+                log.exception("sync failed for deal %s", deal["id"])
         closed = 0
         for task_id in engine.store.open_task_ids():
             try:
                 task = crm.get("tasks", task_id)
-            except RuntimeError:
+            except (RuntimeError, httpx.HTTPError):
                 continue
             if task and task.get("status") == "DONE":
-                engine.on_task_done(task_id)
-                closed += 1
+                try:
+                    engine.on_task_done(task_id)
+                    closed += 1
+                except Exception:
+                    log.exception("sync failed for task %s", task_id)
         # Поля бота в карточке сделки: обновляем, только если что-то изменилось.
         for deal in deals:
-            fields = engine.crm_fields(deal["id"])
-            if fields and any((deal.get(k) or "") != v for k, v in fields.items()):
-                crm.update("opportunities", deal["id"], fields)
+            try:
+                fields = engine.crm_fields(deal["id"])
+                if fields and any((deal.get(k) or "") != v for k, v in fields.items()):
+                    crm.update("opportunities", deal["id"], fields)
+            except Exception:
+                log.exception("failed to update status for deal %s", deal["id"])
         return {"deals": len(deals), "tasks_closed": closed}
 
 
@@ -248,8 +257,7 @@ def sync() -> dict:
 
 
 @app.post("/twenty/webhook")
-async def webhook(request: Request) -> dict:
-    event = await request.json()
+def webhook(event: dict) -> dict:
     name = event.get("eventName", "")
     record = event.get("record") or {}
     with lock:
