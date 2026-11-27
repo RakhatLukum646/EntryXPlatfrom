@@ -16,6 +16,7 @@
   </section>
 </main>
 <div class="toast" id="toast" role="status" hidden></div>
+<input type="file" id="file" multiple hidden aria-hidden="true" tabindex="-1">
 <script>
 /* ---------- иконки и мелочи (как в прототипе) ---------- */
 const P = {
@@ -31,6 +32,8 @@ const P = {
   wifi: '<path d="M2.5 9a14 14 0 0 1 19 0"/><path d="M5.8 12.4a9.5 9.5 0 0 1 12.4 0"/><path d="M9.2 15.8a4.8 4.8 0 0 1 5.6 0"/>',
   bat: '<rect x="2" y="7.5" width="18" height="9" rx="2.6"/><rect x="4" y="9.5" width="12" height="5" rx="1.2" fill="currentColor" stroke="none"/><path d="M22 10.6v2.8"/>',
   panel: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/>',
+  doc: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>',
+  up: '<path d="M12 16V4"/><path d="M7 9l5-5 5 5"/><path d="M5 20h14"/>',
 };
 const ic = (k, s = 20, w = 2) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[k]}</svg>`;
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
@@ -71,6 +74,7 @@ const S = {
   done: {},           // id задачи → {label, at}: ответили отсюда
   picked: {},         // id задачи → выбранный вариант (ждём, когда мост закроет задачу)
   draft: {}, busy: false, scroll: {},
+  docs: {},           // ЗАГЛУШКА: id задачи или сделки → [{name, size, at}]; файлы никуда не уходят, живут до перезагрузки
 };
 const meAgent = () => S.agents.find(a => a.key === S.agent) || {people: [], roles: [], title: ""};
 const tasksOf = pid => (S.me ? S.me.tasks : []).filter(t => t.deal_id === pid);
@@ -230,6 +234,33 @@ function miniBar(i) {
   const ph = S.me ? S.me.phases : [];
   return `<div class="mbar">${ph.map((s, k) => `<i class="${k <= i ? "on" : ""}"></i>`).join("")}</div><div class="mbar-l">Фаза ${i + 1} из ${ph.length} · <b>${esc(ph[i] || "")}</b></div>`;
 }
+/* ---------- документы: ЗАГЛУШКА ----------
+   Кнопка и выбор файла настоящие, а сохранения пока нет: файл остаётся в браузере до перезагрузки.
+   Дальше: POST /api/docs (deal_id, task_id, тип документа, файл) → хранилище моста → задача требует файл. */
+const DOC_RE = /прикреп|загруз|подгруз|документ|скан|фото|видео|акт\b|договор|доверенност|накладн|платёжк/i;
+const needsDoc = t => DOC_RE.test(t.title + " " + (t.body || "").slice(0, 400));
+const fsize = n => n < 1024 ? n + " Б" : n < 1048576 ? (n / 1024).toFixed(0) + " КБ" : (n / 1048576).toFixed(1).replace(".", ",") + " МБ";
+const docChip = d => `<span class="doc-chip">${ic("doc", 16)}<span class="doc-n">${esc(d.name)}</span><span class="doc-s">${esc(fsize(d.size))}</span></span>`;
+let docTarget = null; // {deal, task}
+function pickFiles(deal, task) {
+  docTarget = {deal, task: task || ""};
+  const f = $("file"); f.value = ""; f.click();
+}
+function addDocs(files) {
+  if (!docTarget || !files.length) return;
+  const {deal, task} = docTarget, now = Date.now();
+  const list = [...files].map(f => ({name: f.name, size: f.size, at: now}));
+  const k = task || deal;
+  (S.docs[k] = S.docs[k] || []).push(...list);
+  const c = S.chats[deal] = S.chats[deal] || {conv: "", list: [], loaded: false};
+  const t = task && S.seen[task];
+  c.list.push({from: "me", docs: list, task: t ? t.title : "", at: now, fresh: true});
+  S.scroll[S.scr + ":" + (S.pid || "")] = {bottom: true};
+  renderPhone();
+  toast(`${list.length === 1 ? "Документ прикреплён" : "Прикреплено документов: " + list.length}. <b>Пока не сохраняется</b> — хранилище подключим следующим шагом.`);
+}
+$("file").addEventListener("change", e => addDocs(e.target.files));
+
 function taskHTML(t) {
   const d = S.done[t.id], now = Date.now();
   const pill = d ? `<span class="pill done">${ic("check", 12, 3)}${esc(d.label)} · ${esc(relDay(d.at, now).toLowerCase())}, ${hm(d.at)}</span>`
@@ -241,6 +272,9 @@ function taskHTML(t) {
     const open = S.draft["open:" + t.id];
     h += `<div class="tk-body${open ? "" : " clip"}">${mdHTML(t.body)}</div>${t.body.length > 260 ? `<button class="more" data-more="${t.id}">${open ? "Свернуть" : "Показать полностью"}</button>` : ""}`;
   }
+  const docs = S.docs[t.id] || [];
+  if (docs.length) h += `<div class="doc-list">${docs.map(docChip).join("")}<span class="hint">Пока не сохраняется — заглушка</span></div>`;
+  if (!d && needsDoc(t)) h += `<div class="btns"><button class="btn up" data-upload="${t.id}" data-deal="${t.deal_id}">${ic("up", 18)}${docs.length ? "Добавить ещё" : "Загрузить документ"}</button></div>`;
   if (!d) {
     const wait = S.picked[t.id];
     h += `<div class="btns">${t.options.map(o => `<button class="btn${o.pri ? " pri" : ""}" data-opt="${t.id}" data-q="${esc(o.cmd)}" data-l="${esc(o.label)}"${wait ? " disabled" : ""}>${esc(o.label)}</button>`).join("")}<button class="btn" data-q="${esc(t.draft)}" data-l="Черновик"${wait ? " disabled" : ""}>Черновик</button></div>`;
@@ -257,6 +291,7 @@ function messagesHTML(key) {
     else if (m.at && prev && m.at - prev >= 50 * 60000) out += `<div class="sep">${hm(m.at)}</div>`;
     if (m.at) prev = m.at;
     const a = m.fresh ? " in" : "";
+    if (m.from === "me" && m.docs) { out += `<div class="m me${a}"><div class="bub doc-bub">${m.task ? `<span class="doc-t">К задаче: ${esc(m.task)}</span>` : ""}${m.docs.map(docChip).join("")}<span class="doc-t">не сохранён · заглушка</span></div></div>`; return; }
     if (m.from === "me") { out += `<div class="m me${a}"><div class="bub">${esc(m.text)}</div></div>`; return; }
     let inner = m.text ? `<div class="md">${mdHTML(m.text)}</div>` : m.pending ? '<div class="typing" aria-label="Агент печатает"><i></i><i></i><i></i></div>' : "";
     if (m.err) inner += `<div class="err">Агент не ответил: ${esc(m.err)}</div><div class="btns"><button class="btn sm" data-retry="${esc(key)}">Повторить</button></div>`;
@@ -452,7 +487,12 @@ document.addEventListener("click", e => {
   if (ds.ask) { go("achat"); send("a", ds.ask); return; }
   if (ds.more) { S.draft["open:" + ds.more] = !S.draft["open:" + ds.more]; renderPhone(); return; }
   if (ds.fresh) { store.set(convKey("a"), ""); loadChat("a", "new"); return; }
-  if (ds.attach) { toast("Документы пока прикладываются к сделке в CRM. Загрузка из чата — следующий шаг."); return; }
+  if (ds.upload) { pickFiles(ds.deal, ds.upload); return; }
+  if (ds.attach) {
+    if (S.scr !== "pchat") { toast("Документ прикладывается в чате сделки: откройте проект и нажмите «+»."); return; }
+    const open = tasksOf(S.pid).filter(needsDoc);
+    pickFiles(S.pid, open.length === 1 ? open[0].id : ""); return; // одна задача с документом — прикрепляем к ней
+  }
   if (ds.retry && last) { const c = S.chats[last[0]]; if (c) c.list.splice(-2, 2); send(...last); return; }
   if (ds.q) { const key = S.scr === "pchat" ? S.pid : "a"; if (S.scr !== "pchat" && S.scr !== "achat") go("achat"); send(key, ds.q, ds.l, ds.opt); }
 });
