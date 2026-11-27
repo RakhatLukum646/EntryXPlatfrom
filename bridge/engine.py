@@ -66,6 +66,10 @@ class Store:
             self.db.execute("alter table task add column spec text")  # шаг или ветка задачи (JSON): варианты ответа
         except sqlite3.OperationalError:
             pass
+        try:
+            self.db.execute("alter table task add column at text")  # когда мост создал задачу: для досоздания волны
+        except sqlite3.OperationalError:
+            pass
         # Вариант ответа, для которого бот ждёт причину следующим сообщением (по агенту чата).
         self.db.execute("create table if not exists pending(agent text primary key, task_id text, opt integer)")
 
@@ -101,11 +105,19 @@ class Store:
     def add_task(self, task_id: str, deal_id: str, stage: str, wave: int, step: dict, due: str | None = None) -> None:
         with self.lock:
             self.db.execute(
-                "insert or replace into task(id, deal_id, stage, wave, role, card, blocking, due, spec) values (?,?,?,?,?,?,?,?,?)",
+                "insert or replace into task(id, deal_id, stage, wave, role, card, blocking, due, spec, at)"
+                " values (?,?,?,?,?,?,?,?,?,?)",
                 (task_id, deal_id, stage, wave, step["role"], step["card"], int(step.get("blocking", True)), due,
-                 json.dumps(step, ensure_ascii=False)),
+                 json.dumps(step, ensure_ascii=False), datetime.now(timezone.utc).isoformat(timespec="seconds")),
             )
             self.db.commit()
+
+    def wave_roles(self, deal_id: str, stage: str, wave: int, since: str | None) -> list[tuple[str, str]]:
+        """(роль, карточка) задач этой волны, созданных после входа в этап. Старые строки без `at` — считаем созданными."""
+        return self.db.execute(
+            "select role, card from task where deal_id=? and stage=? and wave=? and coalesce(at, '9999') >= ?",
+            (deal_id, stage, wave, since or ""),
+        ).fetchall()
 
     def task_row(self, task_id: str) -> tuple | None:
         return self.db.execute(
@@ -243,6 +255,36 @@ class Engine:
             self.open_wave(deal, stage_key, 0)
         elif held:
             self.try_advance(deal, stage_key)
+        else:
+            self.heal(deal, stage_key, wave)
+
+    def heal(self, deal: dict, stage_key: str, wave: int) -> None:
+        """Волна открыта, а задач нет: создание упало (Twenty или сеть не ответили). Досоздаём недостающие.
+
+        Без этого сделка стоит навсегда: мост уже записал этап и волну, а закрывать нечего.
+        Пока в волне есть открытая блокирующая задача, ничего не трогаем (флаг мог поменяться позже — это не сбой).
+        """
+        waves = STAGES[stage_key].get("waves", [])
+        if wave >= len(waves):
+            self.try_advance(deal, stage_key)  # этап пройден, а перевод в CRM не прошёл — повторяем (без next ничего не делает)
+            return
+        if self.store.wave_open_blocking(deal["id"], stage_key, wave):
+            return
+        # Сверяем по роли и карточке, а не по тексту шага: текст в stages.yaml могли поправить после создания.
+        have = [(r, c) for r, c in self.store.wave_roles(deal["id"], stage_key, wave, self.store.stage_since(deal["id"]))]
+        missing = []
+        for s in waves[wave]:
+            if not self.needed(deal, s):
+                continue
+            if (s["role"], s["card"]) in have:
+                have.remove((s["role"], s["card"]))
+            else:
+                missing.append(s)
+        if missing:
+            log.warning("deal %s: wave %s/%s without tasks, creating %d", deal.get("name"), stage_key, wave, len(missing))
+            self.create_tasks(deal, STAGES[stage_key], wave, missing)
+        else:
+            self.open_wave(deal, stage_key, wave + 1)  # задачи волны закрыты, а следующая не открылась
 
     def on_task_done(self, task_id: str) -> None:
         row = self.store.mark_done(task_id)
